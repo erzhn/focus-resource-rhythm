@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { APP } from "@/config/app";
 import { DemoStoreProvider } from "@/lib/demo/store";
-import { QuickAddProvider } from "@/components/quick-add";
-import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,15 +15,11 @@ export const metadata: Metadata = {
   description: APP.tagline,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ru" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <DemoStoreProvider>
-          <QuickAddProvider>
-            <AppShell>{children}</AppShell>
-          </QuickAddProvider>
-        </DemoStoreProvider>
+        <DemoStoreProvider>{children}</DemoStoreProvider>
       </body>
     </html>
   );

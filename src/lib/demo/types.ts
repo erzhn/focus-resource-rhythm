@@ -36,6 +36,19 @@ export interface DemoEvent {
   blocksAvailability: boolean;
 }
 
+/** Перенос задачи с обязательной причиной. */
+export interface DemoPostponement {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  toDate: Date;
+  reason: string;
+  at: Date;
+}
+
+/** Решение по крупному результату на еженедельной сверке. */
+export type ResultDecision = "continue" | "change" | "postpone" | "pause" | "decline";
+
 export interface DemoState {
   lifeAreas: DemoLifeArea[];
   results: DemoResult[];
@@ -43,7 +56,15 @@ export interface DemoState {
   events: DemoEvent[];
   dayPlanConfirmed: boolean;
   morningEnergy: number; // 1..5
+  eveningEnergy: number | null; // 1..5, отметка вечером
   availableMinutes: number;
   reserveRatio: number;
   dailyMoneyLimitMajor: number | null;
+  postponements: DemoPostponement[];
+  /** Сохранённый вывод вечернего итога за сегодня. */
+  eveningConclusion: string | null;
+  /** До трёх ключевых результатов следующей недели. */
+  nextWeekResults: string[];
+  /** Сохранённые решения недельной сверки по результатам. */
+  weeklyDecisions: { resultId: string; decision: ResultDecision; reason: string }[];
 }

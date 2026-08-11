@@ -203,8 +203,13 @@ export function createSeedState(now: Date = new Date()): DemoState {
     events,
     dayPlanConfirmed: false,
     morningEnergy: 3,
+    eveningEnergy: null,
     availableMinutes: 8 * 60,
     reserveRatio: 0.25,
     dailyMoneyLimitMajor: 3000,
+    postponements: [],
+    eveningConclusion: null,
+    nextWeekResults: [],
+    weeklyDecisions: [],
   };
 }

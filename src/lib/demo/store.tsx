@@ -13,7 +13,8 @@ import { buildDayPlan, type DayPlanDraft } from "@/domain/planning/dayPlan";
 import { calculatePriority, resolvePriority, type PriorityContext } from "@/domain/priority";
 import type { DayResources, DomainTask } from "@/domain/types";
 import { createSeedState } from "./seed";
-import type { DemoState, DemoTask } from "./types";
+import type { DemoState, DemoTask, ResultDecision } from "./types";
+import type { TaskStatus } from "@/domain/types";
 
 interface StoreValue {
   state: DemoState;
@@ -32,6 +33,15 @@ interface StoreValue {
   confirmDayPlan: () => void;
   setMorningEnergy: (v: number) => void;
   setAvailableMinutes: (v: number) => void;
+  setTaskStatus: (id: string, status: TaskStatus) => void;
+  /** Перенос задачи с обязательной причиной (методика: причина обязательна). */
+  postponeTask: (id: string, toDate: Date, reason: string) => void;
+  /** Разделить задачу на части (каждая — новая задача, исходная — отменяется). */
+  splitTask: (id: string, parts: string[]) => void;
+  setEveningEnergy: (v: number) => void;
+  saveEveningReview: (conclusion: string) => void;
+  setNextWeekResults: (titles: string[]) => void;
+  decideResult: (resultId: string, decision: ResultDecision, reason: string) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -184,6 +194,97 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, dayPlanConfirmed: true }));
   }, []);
 
+  const setTaskStatus = useCallback<StoreValue["setTaskStatus"]>((id, status) => {
+    setState((s) => ({
+      ...s,
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, status } : t)),
+    }));
+  }, []);
+
+  const postponeTask = useCallback<StoreValue["postponeTask"]>((id, toDate, reason) => {
+    if (!reason.trim()) return; // причина обязательна
+    setState((s) => {
+      const task = s.tasks.find((t) => t.id === id);
+      if (!task) return s;
+      return {
+        ...s,
+        tasks: s.tasks.map((t) =>
+          t.id === id ? { ...t, status: "postponed", dueDate: toDate } : t,
+        ),
+        postponements: [
+          {
+            id: nextId(),
+            taskId: id,
+            taskTitle: task.title,
+            toDate,
+            reason: reason.trim(),
+            at: now,
+          },
+          ...s.postponements,
+        ],
+      };
+    });
+  }, [now]);
+
+  const splitTask = useCallback<StoreValue["splitTask"]>((id, parts) => {
+    const clean = parts.map((p) => p.trim()).filter(Boolean);
+    if (clean.length === 0) return;
+    setState((s) => {
+      const task = s.tasks.find((t) => t.id === id);
+      if (!task) return s;
+      const newTasks: DemoTask[] = clean.map((title) => ({
+        ...task,
+        id: nextId(),
+        title,
+        status: "planned",
+        plannedMinutes: Math.max(5, Math.round(task.plannedMinutes / clean.length)),
+      }));
+      return {
+        ...s,
+        tasks: [
+          ...newTasks,
+          ...s.tasks.map((t) => (t.id === id ? { ...t, status: "cancelled" as TaskStatus } : t)),
+        ],
+      };
+    });
+  }, []);
+
+  const setEveningEnergy = useCallback<StoreValue["setEveningEnergy"]>((v) => {
+    setState((s) => ({ ...s, eveningEnergy: Math.max(1, Math.min(5, v)) }));
+  }, []);
+
+  const saveEveningReview = useCallback<StoreValue["saveEveningReview"]>((conclusion) => {
+    setState((s) => ({ ...s, eveningConclusion: conclusion }));
+  }, []);
+
+  const setNextWeekResults = useCallback<StoreValue["setNextWeekResults"]>((titles) => {
+    setState((s) => ({ ...s, nextWeekResults: titles.slice(0, 3) }));
+  }, []);
+
+  const decideResult = useCallback<StoreValue["decideResult"]>((resultId, decision, reason) => {
+    setState((s) => {
+      // Отображение решения на зону результата.
+      const zoneByDecision: Record<ResultDecision, DemoState["results"][number]["zone"] | null> = {
+        continue: null,
+        change: null,
+        postpone: "next",
+        pause: "later",
+        decline: "declined",
+      };
+      const zone = zoneByDecision[decision];
+      return {
+        ...s,
+        results: zone
+          ? s.results.map((r) => (r.id === resultId ? { ...r, zone } : r))
+          : s.results,
+        weeklyDecisions: [
+          ...s.weeklyDecisions.filter((d) => d.resultId !== resultId),
+          { resultId, decision, reason: reason.trim() },
+        ],
+      };
+    });
+  }, []);
+
   const setMorningEnergy = useCallback((v: number) => {
     setState((s) => ({ ...s, morningEnergy: Math.max(1, Math.min(5, v)) }));
   }, []);
@@ -208,6 +309,13 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     confirmDayPlan,
     setMorningEnergy,
     setAvailableMinutes,
+    setTaskStatus,
+    postponeTask,
+    splitTask,
+    setEveningEnergy,
+    saveEveningReview,
+    setNextWeekResults,
+    decideResult,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
