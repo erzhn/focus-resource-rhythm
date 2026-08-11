@@ -1,7 +1,18 @@
 # Синхронизация календарей (Google / Microsoft)
 
-Статус: **схема данных и стратегия готовы; OAuth-потоки и адаптеры активируются при наличии ключей**.
-Основное приложение работает без подключённых календарей.
+Статус: **адаптеры, OAuth-потоки (state+PKCE), разрешение конфликтов и шифрование токенов
+реализованы и покрыты unit-тестами; активируются при наличии ключей**. Реальный обмен с
+Google/Microsoft и webhook-каналы ожидают учётных данных. Основное приложение работает без
+подключённых календарей.
+
+## Реализованные модули
+
+- `src/lib/integrations/provider.ts` — единый интерфейс `CalendarProvider`.
+- `src/lib/integrations/google.ts`, `microsoft.ts` — адаптеры (OAuth, Events/Graph, sync).
+- `src/app/api/integrations/[provider]/route.ts` + `callback/route.ts` — OAuth со state и PKCE.
+- `src/lib/crypto/tokens.ts` — AES-256-GCM шифрование refresh-токенов (тесты).
+- `src/domain/sync/conflict.ts` — правило разрешения конфликтов (тесты).
+- `src/domain/sync/mapping.ts` — задача ↔ внешнее событие, структурированный блок (тесты).
 
 ## Принципы
 

@@ -70,17 +70,26 @@ export default function SettingsPage() {
       <Card>
         <CardTitle>Интеграции календарей</CardTitle>
         <p className="mt-2 text-sm text-muted">
-          Google Calendar и Microsoft Outlook. Код интеграции, экран выбора календарей и адаптеры
-          заложены на уровне схемы; подключение станет доступно после добавления OAuth-ключей.
-          Реальная проверка синхронизации ожидает учётных данных (см. docs/CALENDAR_SYNC.md).
+          Google Calendar и Microsoft Outlook. Адаптеры, OAuth-потоки (state + PKCE), выбор
+          календарей, разрешение конфликтов и шифрование токенов реализованы. Подключение активно
+          после добавления OAuth-ключей; без ключей кнопки вернут вас сюда (см. docs/CALENDAR_SYNC.md).
         </p>
         <div className="mt-3 flex gap-2">
-          <span className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted">
-            Google — ожидает ключей
-          </span>
-          <span className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted">
-            Microsoft — ожидает ключей
-          </span>
+          {/* Полная навигация к API-роуту OAuth (не next/link — нужен серверный редирект). */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/api/integrations/google"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-surface-2"
+          >
+            Подключить Google
+          </a>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/api/integrations/microsoft"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-surface-2"
+          >
+            Подключить Microsoft
+          </a>
         </div>
       </Card>
     </div>
