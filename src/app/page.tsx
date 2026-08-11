@@ -1,69 +1,228 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { differenceInCalendarDays } from "date-fns";
+import { AlertTriangle, CalendarClock, CheckCircle2, Star } from "lucide-react";
+import { useStore } from "@/lib/demo/store";
+import { TaskRow } from "@/components/task-row";
+import { Button, Card, CardTitle, EmptyState } from "@/components/ui/primitives";
+import { ENERGY_BAND_LABELS, energyBand } from "@/domain/resources";
+import { formatDate, formatMinutes, formatMoney, formatTime } from "@/lib/format";
+import type { Scale1to5 } from "@/domain/types";
+
+export default function TodayPage() {
+  const {
+    state,
+    now,
+    dayPlan,
+    resources,
+    confirmDayPlan,
+    setMorningEnergy,
+    focusResults,
+  } = useStore();
+
+  const activeResults = state.results.filter((r) => r.zone === "now");
+  const todayEvents = state.events
+    .filter((e) => differenceInCalendarDays(e.start, now) === 0)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const overdue = state.tasks.filter(
+    (t) => t.dueDate && differenceInCalendarDays(now, t.dueDate) > 0 && t.status !== "done",
+  );
+  const moneyLimit = state.dailyMoneyLimitMajor;
+  const byId = (id: string) => state.tasks.find((t) => t.id === id)!;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-6">
+      <header>
+        <p className="text-xs text-muted">{formatDate(now)}</p>
+        <h1 className="text-2xl font-bold tracking-tight">Сегодня</h1>
+        <p className="mt-1 text-sm text-muted">Что мне действительно нужно сделать сегодня.</p>
+      </header>
+
+      {/* Утренняя проверка: силы + время */}
+      <Card>
+        <CardTitle>Утренняя проверка</CardTitle>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs text-muted">
+              Уровень сил ({ENERGY_BAND_LABELS[energyBand(state.morningEnergy as Scale1to5)]})
+            </p>
+            <div className="mt-1 flex gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setMorningEnergy(n)}
+                  aria-label={`Силы ${n}`}
+                  className={`h-8 w-8 rounded-lg border text-sm ${
+                    state.morningEnergy === n ? "border-primary bg-primary text-primary-fg" : "border-border"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-muted">Доступное время</p>
+            <p className="mt-1 text-lg font-semibold">{formatMinutes(resources.availableMinutes)}</p>
+            <p className="text-[11px] text-muted">
+              Резерв {formatMinutes(dayPlan.reserveMinutes)} · под планирование {formatMinutes(dayPlan.plannableMinutes)}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Главное дело */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Star className="h-4 w-4 text-[var(--warning)]" />
+          <h2 className="text-sm font-semibold">Главное дело</h2>
+        </div>
+        {dayPlan.main ? (
+          <>
+            <TaskRow task={byId(dayPlan.main.task.id)} />
+            <p className="text-xs text-muted">{dayPlan.main.explanation}</p>
+          </>
+        ) : (
+          <EmptyState title="Нет главного дела" hint="Добавьте задачу или снимите блокировки зависимостей." />
+        )}
+      </section>
+
+      {/* Дополнительные и повторяющиеся */}
+      {dayPlan.secondary.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Дополнительные задачи (до двух)</h2>
+          {dayPlan.secondary.map((p) => (
+            <TaskRow key={p.task.id} task={byId(p.task.id)} />
+          ))}
+        </section>
+      )}
+      {dayPlan.recurring.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Обязательные повторяющиеся дела</h2>
+          {dayPlan.recurring.map((p) => (
+            <TaskRow key={p.task.id} task={byId(p.task.id)} />
+          ))}
+        </section>
+      )}
+
+      {/* Предупреждения */}
+      {dayPlan.warnings.length > 0 && (
+        <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
+          <div className="flex items-center gap-2 text-[var(--warning)]">
+            <AlertTriangle className="h-4 w-4" />
+            <CardTitle className="text-[var(--warning)]">Предупреждения</CardTitle>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+            {dayPlan.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Ресурсы дня */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardTitle>Время</CardTitle>
+          <p className="mt-2 text-lg font-semibold">{formatMinutes(dayPlan.plannedMinutes)}</p>
+          <p className="text-[11px] text-muted">план из {formatMinutes(dayPlan.plannableMinutes)}</p>
+        </Card>
+        <Card>
+          <CardTitle>Деньги (лимит дня)</CardTitle>
+          <p className="mt-2 text-lg font-semibold">
+            {moneyLimit === null ? "—" : formatMoney(moneyLimit)}
           </p>
+          <p className="text-[11px] text-muted">
+            план {formatMoney(state.tasks.reduce((s, t) => s + t.plannedMoneyMinor, 0) / 100)}
+          </p>
+        </Card>
+        <Card>
+          <CardTitle>Резерв</CardTitle>
+          <p className="mt-2 text-lg font-semibold">{formatMinutes(dayPlan.reserveMinutes)}</p>
+          <p className="text-[11px] text-muted">{Math.round(state.reserveRatio * 100)}% дня</p>
+        </Card>
+      </div>
+
+      {/* Фиксированные события */}
+      <Card>
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-muted" />
+          <CardTitle>Ближайшие фиксированные события</CardTitle>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        {todayEvents.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Сегодня событий нет.</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {todayEvents.map((e) => (
+              <li key={e.id} className="flex justify-between">
+                <span>
+                  {e.title} {e.fixed ? "" : "(гибкое)"}
+                </span>
+                <span className="text-muted">
+                  {formatTime(e.start)}–{formatTime(e.end)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Просроченные */}
+      {overdue.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-[var(--danger)]">Просроченные задачи</h2>
+          {overdue.map((t) => (
+            <TaskRow key={t.id} task={t} />
+          ))}
+        </section>
+      )}
+
+      {/* Прогресс активных результатов */}
+      <Card>
+        <CardTitle>Прогресс трёх активных результатов</CardTitle>
+        <div className="mt-3 space-y-3">
+          {activeResults.map((r) => {
+            const noAction = !focusResults.find((f) => f.id === r.id)?.hasNextAction;
+            return (
+              <div key={r.id}>
+                <div className="flex justify-between text-sm">
+                  <span>{r.title}</span>
+                  <span className="text-muted">{Math.round(r.progress * 100)}%</span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${r.progress * 100}%`, backgroundColor: "var(--zone-now)" }}
+                  />
+                </div>
+                {noAction && (
+                  <p className="mt-1 text-[11px] text-[var(--warning)]">
+                    Нет ближайшего действия — добавьте физический шаг.
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
-      </main>
+      </Card>
+
+      {/* Подтверждение плана дня */}
+      <div className="sticky bottom-20 md:bottom-4">
+        {state.dayPlanConfirmed ? (
+          <div className="flex items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="h-4 w-4" />
+            План дня подтверждён.
+          </div>
+        ) : (
+          <Card className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">План дня — черновик</p>
+              <p className="text-xs text-muted">Редактируйте свободно, затем подтвердите.</p>
+            </div>
+            <Button onClick={confirmDayPlan}>Подтвердить план дня</Button>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

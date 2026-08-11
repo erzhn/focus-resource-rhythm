@@ -1,0 +1,210 @@
+import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
+import type { DemoEvent, DemoResult, DemoState, DemoTask } from "./types";
+
+/** Реалистичные русскоязычные демо-данные для локального просмотра. */
+export function createSeedState(now: Date = new Date()): DemoState {
+  const today = startOfDay(now);
+  const at = (h: number, m: number, dayOffset = 0) =>
+    setMinutes(setHours(addDays(today, dayOffset), h), m);
+
+  const lifeAreas = [
+    { id: "la-work", name: "Работа", color: "#3b6ea5" },
+    { id: "la-health", name: "Здоровье", color: "#2f7d4f" },
+    { id: "la-family", name: "Семья", color: "#b5892f" },
+    { id: "la-growth", name: "Развитие", color: "#7a4fb5" },
+  ];
+
+  const results: DemoResult[] = [
+    {
+      id: "r-launch",
+      title: "Запустить новую версию продукта",
+      kind: "project",
+      lifeAreaId: "la-work",
+      zone: "now",
+      horizonDays: 90,
+      progress: 0.45,
+    },
+    {
+      id: "r-health",
+      title: "Восстановить режим сна и тренировок",
+      kind: "goal",
+      lifeAreaId: "la-health",
+      zone: "now",
+      horizonDays: 90,
+      progress: 0.3,
+    },
+    {
+      id: "r-course",
+      title: "Пройти курс по системному дизайну",
+      kind: "project",
+      lifeAreaId: "la-growth",
+      zone: "next",
+      horizonDays: 90,
+      progress: 0.1,
+    },
+    {
+      id: "r-repair",
+      title: "Сделать ремонт в детской",
+      kind: "project",
+      lifeAreaId: "la-family",
+      zone: "later",
+      horizonDays: null,
+      progress: 0,
+    },
+    {
+      id: "r-blog",
+      title: "Вести еженедельный блог",
+      kind: "goal",
+      lifeAreaId: "la-growth",
+      zone: "declined",
+      horizonDays: null,
+      progress: 0,
+    },
+  ];
+
+  const baseTask = (t: Partial<DemoTask> & { id: string; title: string }): DemoTask => ({
+    status: "planned",
+    dueDate: null,
+    importance: 3,
+    consequence: 3,
+    goalLink: 3,
+    energyRequired: 3,
+    plannedMinutes: 30,
+    plannedMoneyMinor: 0,
+    schedulingMode: "unordered",
+    isRecurringToday: false,
+    unblocks: [],
+    dependsOn: [],
+    linkedToActiveResult: false,
+    description: null,
+    resultId: null,
+    manualPriority: null,
+    manualPriorityNote: null,
+    ...t,
+  });
+
+  const tasks: DemoTask[] = [
+    baseTask({
+      id: "t-spec",
+      title: "Согласовать спецификацию релиза с командой",
+      resultId: "r-launch",
+      linkedToActiveResult: true,
+      importance: 5,
+      consequence: 4,
+      goalLink: 5,
+      energyRequired: 4,
+      plannedMinutes: 90,
+      dueDate: today,
+      schedulingMode: "timeblock",
+      unblocks: ["t-deploy"],
+    }),
+    baseTask({
+      id: "t-deploy",
+      title: "Подготовить сборку и выкатить на стенд",
+      resultId: "r-launch",
+      linkedToActiveResult: true,
+      importance: 4,
+      consequence: 4,
+      goalLink: 4,
+      energyRequired: 3,
+      plannedMinutes: 60,
+      dependsOn: ["t-spec"],
+      dueDate: addDays(today, 1),
+    }),
+    baseTask({
+      id: "t-workout",
+      title: "Тренировка 30 минут",
+      resultId: "r-health",
+      linkedToActiveResult: true,
+      importance: 3,
+      consequence: 2,
+      goalLink: 4,
+      energyRequired: 2,
+      plannedMinutes: 30,
+      isRecurringToday: true,
+      schedulingMode: "ordered",
+    }),
+    baseTask({
+      id: "t-invoice",
+      title: "Оплатить счёт за интернет",
+      importance: 2,
+      consequence: 4,
+      goalLink: 1,
+      energyRequired: 1,
+      plannedMinutes: 10,
+      plannedMoneyMinor: 1500_00,
+      dueDate: addDays(today, 2),
+    }),
+    baseTask({
+      id: "t-call",
+      title: "Позвонить родителям",
+      resultId: null,
+      importance: 3,
+      consequence: 2,
+      goalLink: 2,
+      energyRequired: 1,
+      plannedMinutes: 20,
+    }),
+    baseTask({
+      id: "t-idea",
+      title: "Обдумать идею мобильного приложения",
+      status: "inbox",
+      importance: 2,
+      consequence: 1,
+      goalLink: 2,
+      energyRequired: 3,
+      plannedMinutes: 45,
+    }),
+    baseTask({
+      id: "t-overdue",
+      title: "Отправить отчёт за прошлый месяц",
+      resultId: "r-launch",
+      linkedToActiveResult: true,
+      importance: 4,
+      consequence: 5,
+      goalLink: 3,
+      energyRequired: 3,
+      plannedMinutes: 40,
+      dueDate: addDays(today, -2),
+    }),
+  ];
+
+  const events: DemoEvent[] = [
+    {
+      id: "e-standup",
+      title: "Дейли-встреча команды",
+      start: at(10, 0),
+      end: at(10, 30),
+      fixed: true,
+      blocksAvailability: true,
+    },
+    {
+      id: "e-lunch",
+      title: "Обед",
+      start: at(13, 0),
+      end: at(14, 0),
+      fixed: false,
+      blocksAvailability: true,
+    },
+    {
+      id: "e-doctor",
+      title: "Приём у врача",
+      start: at(16, 0, 1),
+      end: at(16, 45, 1),
+      fixed: true,
+      blocksAvailability: true,
+    },
+  ];
+
+  return {
+    lifeAreas,
+    results,
+    tasks,
+    events,
+    dayPlanConfirmed: false,
+    morningEnergy: 3,
+    availableMinutes: 8 * 60,
+    reserveRatio: 0.25,
+    dailyMoneyLimitMajor: 3000,
+  };
+}

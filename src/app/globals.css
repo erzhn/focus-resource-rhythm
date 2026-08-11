@@ -1,26 +1,95 @@
 @import "tailwindcss";
 
+/*
+  «Фокус — Ресурс — Ритм» — спокойная, современная тема.
+  Цвет не является единственным носителем смысла: везде дублируется текстом/иконкой.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --background: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f2f2ef;
+  --foreground: #1c1c1a;
+  --muted: #6b6b66;
+  --border: #e4e4df;
+  --primary: #3a5a40;
+  --primary-fg: #ffffff;
+  --ring: #3a5a40;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Зоны фокуса */
+  --zone-now: #2f6f4f;
+  --zone-next: #3b6ea5;
+  --zone-later: #8a7a3a;
+  --zone-declined: #8a8a85;
+
+  /* Уровень сил */
+  --energy-low: #b4432f;
+  --energy-medium: #b5892f;
+  --energy-high: #2f7d4f;
+
+  /* Статусы / сигналы */
+  --danger: #b4432f;
+  --warning: #b5892f;
+  --success: #2f7d4f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #14140f;
+    --surface: #1d1d18;
+    --surface-2: #24241e;
+    --foreground: #ecebe4;
+    --muted: #9a9a92;
+    --border: #33332c;
+    --primary: #8bbf9a;
+    --primary-fg: #14140f;
+    --ring: #8bbf9a;
+    --zone-now: #6cc79a;
+    --zone-next: #7fb0e0;
+    --zone-later: #d3bd6a;
+    --zone-declined: #a0a099;
+    --energy-low: #e0745f;
+    --energy-medium: #e0b45f;
+    --energy-high: #6cc79a;
+    --danger: #e0745f;
+    --warning: #e0b45f;
+    --success: #6cc79a;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-zone-now: var(--zone-now);
+  --color-zone-next: var(--zone-next);
+  --color-zone-later: var(--zone-later);
+  --color-zone-declined: var(--zone-declined);
+  --color-energy-low: var(--energy-low);
+  --color-energy-medium: var(--energy-medium);
+  --color-energy-high: var(--energy-high);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --font-sans: var(--font-geist-sans);
+}
+
+* {
+  border-color: var(--border);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
