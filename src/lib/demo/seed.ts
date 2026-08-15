@@ -1,6 +1,26 @@
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
 import type { DemoEvent, DemoResult, DemoState, DemoTask } from "./types";
 
+/** Пустой снимок состояния (для реального режима до загрузки из БД). */
+export function createEmptyState(): DemoState {
+  return {
+    lifeAreas: [],
+    results: [],
+    tasks: [],
+    events: [],
+    dayPlanConfirmed: false,
+    morningEnergy: 3,
+    eveningEnergy: null,
+    availableMinutes: 8 * 60,
+    reserveRatio: 0.25,
+    dailyMoneyLimitMajor: null,
+    postponements: [],
+    eveningConclusion: null,
+    nextWeekResults: [],
+    weeklyDecisions: [],
+  };
+}
+
 /** Реалистичные русскоязычные демо-данные для локального просмотра. */
 export function createSeedState(now: Date = new Date()): DemoState {
   const today = startOfDay(now);

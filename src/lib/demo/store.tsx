@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -12,13 +13,21 @@ import { canAddToNow, type FocusResult, type FocusZone } from "@/domain/focus";
 import { buildDayPlan, type DayPlanDraft } from "@/domain/planning/dayPlan";
 import { calculatePriority, resolvePriority, type PriorityContext } from "@/domain/priority";
 import type { DayResources, DomainTask } from "@/domain/types";
-import { createSeedState } from "./seed";
+import { createEmptyState, createSeedState } from "./seed";
 import type { DemoState, DemoTask, ResultDecision } from "./types";
 import type { TaskStatus } from "@/domain/types";
+import { isSupabaseConfigured } from "@/lib/env";
+import type { DataProvider } from "@/lib/data/provider";
+import { DemoDataProvider } from "@/lib/data/demo-provider";
+import { SupabaseDataProvider } from "@/lib/data/supabase-provider";
 
 interface StoreValue {
   state: DemoState;
   now: Date;
+  /** Режим источника данных. */
+  mode: "demo" | "supabase";
+  /** Идёт первичная загрузка снимка (для реального режима). */
+  loading: boolean;
   resources: DayResources;
   priorityContext: PriorityContext;
   /** Приоритет задачи (эффективный + системный + признак ручного). */
@@ -46,13 +55,49 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-let counter = 0;
-const nextId = () => `t-new-${++counter}`;
+/** Стабильный uuid — годится и для демо, и для вставки в Supabase (uuid-колонки). */
+const nextId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `t-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 export function DemoStoreProvider({ children }: { children: ReactNode }) {
   // Фиксируем «сегодня» на момент монтирования, чтобы расчёты были стабильны.
   const [now] = useState(() => new Date());
-  const [state, setState] = useState<DemoState>(() => createSeedState(now));
+  // Провайдер данных выбирается один раз: реальный Supabase или демо (память).
+  const [provider] = useState<DataProvider>(() =>
+    isSupabaseConfigured ? new SupabaseDataProvider() : new DemoDataProvider(),
+  );
+
+  const [state, setState] = useState<DemoState>(() =>
+    provider.mode === "demo" ? createSeedState(now) : createEmptyState(),
+  );
+  const [loading, setLoading] = useState(provider.mode === "supabase");
+
+  // Гидратация снимка из провайдера (для реального режима — из БД).
+  useEffect(() => {
+    let alive = true;
+    provider
+      .loadSnapshot(now)
+      .then((snapshot) => {
+        if (alive) setState(snapshot);
+      })
+      .catch((e) => console.error("Не удалось загрузить данные:", e))
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [provider, now]);
+
+  /** Персистит мутацию в провайдер, не блокируя оптимистичный локальный апдейт. */
+  const persist = useCallback(
+    (fn: (p: DataProvider) => Promise<void>) => {
+      fn(provider).catch((e) => console.error("Ошибка сохранения:", e));
+    },
+    [provider],
+  );
 
   const resources: DayResources = useMemo(
     () => ({
@@ -105,64 +150,76 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [state.results, state.tasks],
   );
 
-  const addTask = useCallback<StoreValue["addTask"]>((task) => {
-    const id = nextId();
-    setState((s) => ({
-      ...s,
-      tasks: [
-        {
-          id,
-          title: task.title,
-          status: task.status ?? "inbox",
-          dueDate: task.dueDate ?? null,
-          importance: task.importance ?? 3,
-          consequence: task.consequence ?? 3,
-          goalLink: task.goalLink ?? 3,
-          energyRequired: task.energyRequired ?? 3,
-          plannedMinutes: task.plannedMinutes ?? 30,
-          plannedMoneyMinor: task.plannedMoneyMinor ?? 0,
-          schedulingMode: task.schedulingMode ?? "unordered",
-          isRecurringToday: task.isRecurringToday ?? false,
-          unblocks: task.unblocks ?? [],
-          dependsOn: task.dependsOn ?? [],
-          linkedToActiveResult: task.linkedToActiveResult ?? false,
-          description: task.description ?? null,
-          resultId: task.resultId ?? null,
-          manualPriority: null,
-          manualPriorityNote: null,
-        },
-        ...s.tasks,
-      ],
-    }));
-    return id;
-  }, []);
+  const addTask = useCallback<StoreValue["addTask"]>(
+    (task) => {
+      const newTask: DemoTask = {
+        id: nextId(),
+        title: task.title,
+        status: task.status ?? "inbox",
+        dueDate: task.dueDate ?? null,
+        importance: task.importance ?? 3,
+        consequence: task.consequence ?? 3,
+        goalLink: task.goalLink ?? 3,
+        energyRequired: task.energyRequired ?? 3,
+        plannedMinutes: task.plannedMinutes ?? 30,
+        plannedMoneyMinor: task.plannedMoneyMinor ?? 0,
+        schedulingMode: task.schedulingMode ?? "unordered",
+        isRecurringToday: task.isRecurringToday ?? false,
+        unblocks: task.unblocks ?? [],
+        dependsOn: task.dependsOn ?? [],
+        linkedToActiveResult: task.linkedToActiveResult ?? false,
+        description: task.description ?? null,
+        resultId: task.resultId ?? null,
+        manualPriority: null,
+        manualPriorityNote: null,
+      };
+      setState((s) => ({ ...s, tasks: [newTask, ...s.tasks] }));
+      persist((p) => p.createTask(newTask));
+      return newTask.id;
+    },
+    [persist],
+  );
 
-  const updateTask = useCallback<StoreValue["updateTask"]>((id, patch) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    }));
-  }, []);
+  const updateTask = useCallback<StoreValue["updateTask"]>(
+    (id, patch) => {
+      setState((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      }));
+      persist((p) => p.updateTask(id, patch));
+    },
+    [persist],
+  );
 
-  const toggleDone = useCallback<StoreValue["toggleDone"]>((id) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === id ? { ...t, status: t.status === "done" ? "planned" : "done" } : t,
-      ),
-    }));
-  }, []);
+  const toggleDone = useCallback<StoreValue["toggleDone"]>(
+    (id) => {
+      let nextStatus: TaskStatus = "done";
+      setState((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) => {
+          if (t.id !== id) return t;
+          nextStatus = t.status === "done" ? "planned" : "done";
+          return { ...t, status: nextStatus };
+        }),
+      }));
+      persist((p) => p.updateTask(id, { status: nextStatus }));
+    },
+    [persist],
+  );
 
-  const setManualPriority = useCallback<StoreValue["setManualPriority"]>((id, score, note) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === id
-          ? { ...t, manualPriority: score, manualPriorityNote: score === null ? null : note ?? null }
-          : t,
-      ),
-    }));
-  }, []);
+  const setManualPriority = useCallback<StoreValue["setManualPriority"]>(
+    (id, score, note) => {
+      const manualPriorityNote = score === null ? null : note ?? null;
+      setState((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) =>
+          t.id === id ? { ...t, manualPriority: score, manualPriorityNote } : t,
+        ),
+      }));
+      persist((p) => p.updateTask(id, { manualPriority: score, manualPriorityNote }));
+    },
+    [persist],
+  );
 
   const moveZone = useCallback<StoreValue["moveZone"]>(
     (resultId, zone) => {
@@ -185,85 +242,118 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           results: s.results.map((r) => (r.id === resultId ? { ...r, zone } : r)),
         };
       });
+      if (result.ok) persist((p) => p.setResultZone(resultId, zone));
       return result;
     },
-    [],
+    [persist],
   );
 
   const confirmDayPlan = useCallback(() => {
     setState((s) => ({ ...s, dayPlanConfirmed: true }));
-  }, []);
+    persist((p) => p.confirmDayPlan(now));
+  }, [persist, now]);
 
-  const setTaskStatus = useCallback<StoreValue["setTaskStatus"]>((id, status) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, status } : t)),
-    }));
-  }, []);
-
-  const postponeTask = useCallback<StoreValue["postponeTask"]>((id, toDate, reason) => {
-    if (!reason.trim()) return; // причина обязательна
-    setState((s) => {
-      const task = s.tasks.find((t) => t.id === id);
-      if (!task) return s;
-      return {
+  const setTaskStatus = useCallback<StoreValue["setTaskStatus"]>(
+    (id, status) => {
+      setState((s) => ({
         ...s,
-        tasks: s.tasks.map((t) =>
-          t.id === id ? { ...t, status: "postponed", dueDate: toDate } : t,
-        ),
-        postponements: [
-          {
-            id: nextId(),
-            taskId: id,
-            taskTitle: task.title,
-            toDate,
-            reason: reason.trim(),
-            at: now,
-          },
-          ...s.postponements,
-        ],
-      };
-    });
-  }, [now]);
-
-  const splitTask = useCallback<StoreValue["splitTask"]>((id, parts) => {
-    const clean = parts.map((p) => p.trim()).filter(Boolean);
-    if (clean.length === 0) return;
-    setState((s) => {
-      const task = s.tasks.find((t) => t.id === id);
-      if (!task) return s;
-      const newTasks: DemoTask[] = clean.map((title) => ({
-        ...task,
-        id: nextId(),
-        title,
-        status: "planned",
-        plannedMinutes: Math.max(5, Math.round(task.plannedMinutes / clean.length)),
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, status } : t)),
       }));
-      return {
-        ...s,
-        tasks: [
-          ...newTasks,
-          ...s.tasks.map((t) => (t.id === id ? { ...t, status: "cancelled" as TaskStatus } : t)),
-        ],
-      };
-    });
-  }, []);
+      persist((p) => p.updateTask(id, { status }));
+    },
+    [persist],
+  );
 
-  const setEveningEnergy = useCallback<StoreValue["setEveningEnergy"]>((v) => {
-    setState((s) => ({ ...s, eveningEnergy: Math.max(1, Math.min(5, v)) }));
-  }, []);
+  const postponeTask = useCallback<StoreValue["postponeTask"]>(
+    (id, toDate, reason) => {
+      if (!reason.trim()) return; // причина обязательна
+      let postponement: DemoState["postponements"][number] | null = null;
+      setState((s) => {
+        const task = s.tasks.find((t) => t.id === id);
+        if (!task) return s;
+        postponement = {
+          id: nextId(),
+          taskId: id,
+          taskTitle: task.title,
+          toDate,
+          reason: reason.trim(),
+          at: now,
+        };
+        return {
+          ...s,
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, status: "postponed", dueDate: toDate } : t,
+          ),
+          postponements: [postponement, ...s.postponements],
+        };
+      });
+      persist((p) => p.updateTask(id, { status: "postponed", dueDate: toDate }));
+      if (postponement) persist((p) => p.addPostponement(postponement!));
+    },
+    [persist, now],
+  );
 
-  const saveEveningReview = useCallback<StoreValue["saveEveningReview"]>((conclusion) => {
-    setState((s) => ({ ...s, eveningConclusion: conclusion }));
-  }, []);
+  const splitTask = useCallback<StoreValue["splitTask"]>(
+    (id, parts) => {
+      const clean = parts.map((p) => p.trim()).filter(Boolean);
+      if (clean.length === 0) return;
+      let created: DemoTask[] = [];
+      setState((s) => {
+        const task = s.tasks.find((t) => t.id === id);
+        if (!task) return s;
+        created = clean.map((title) => ({
+          ...task,
+          id: nextId(),
+          title,
+          status: "planned",
+          plannedMinutes: Math.max(5, Math.round(task.plannedMinutes / clean.length)),
+        }));
+        return {
+          ...s,
+          tasks: [
+            ...created,
+            ...s.tasks.map((t) => (t.id === id ? { ...t, status: "cancelled" as TaskStatus } : t)),
+          ],
+        };
+      });
+      created.forEach((t) => persist((p) => p.createTask(t)));
+      persist((p) => p.updateTask(id, { status: "cancelled" }));
+    },
+    [persist],
+  );
 
-  const setNextWeekResults = useCallback<StoreValue["setNextWeekResults"]>((titles) => {
-    setState((s) => ({ ...s, nextWeekResults: titles.slice(0, 3) }));
-  }, []);
+  const setEveningEnergy = useCallback<StoreValue["setEveningEnergy"]>(
+    (v) => {
+      const eveningEnergy = Math.max(1, Math.min(5, v));
+      setState((s) => ({ ...s, eveningEnergy }));
+      persist((p) => p.upsertCheckin(now, { eveningEnergy }));
+    },
+    [persist, now],
+  );
 
-  const decideResult = useCallback<StoreValue["decideResult"]>((resultId, decision, reason) => {
-    setState((s) => {
-      // Отображение решения на зону результата.
+  const saveEveningReview = useCallback<StoreValue["saveEveningReview"]>(
+    (conclusion) => {
+      setState((s) => ({ ...s, eveningConclusion: conclusion }));
+      persist((p) => p.saveEveningReview(now, conclusion));
+    },
+    [persist, now],
+  );
+
+  const setNextWeekResults = useCallback<StoreValue["setNextWeekResults"]>(
+    (titles) => {
+      const next = titles.slice(0, 3);
+      let decisions: DemoState["weeklyDecisions"] = [];
+      setState((s) => {
+        decisions = s.weeklyDecisions;
+        return { ...s, nextWeekResults: next };
+      });
+      persist((p) => p.saveWeeklyReview(now, next, decisions));
+    },
+    [persist, now],
+  );
+
+  const decideResult = useCallback<StoreValue["decideResult"]>(
+    (resultId, decision, reason) => {
       const zoneByDecision: Record<ResultDecision, DemoState["results"][number]["zone"] | null> = {
         continue: null,
         change: null,
@@ -272,30 +362,51 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         decline: "declined",
       };
       const zone = zoneByDecision[decision];
-      return {
-        ...s,
-        results: zone
-          ? s.results.map((r) => (r.id === resultId ? { ...r, zone } : r))
-          : s.results,
-        weeklyDecisions: [
+      let nextDecisions: DemoState["weeklyDecisions"] = [];
+      let nextResults: string[] = [];
+      setState((s) => {
+        nextDecisions = [
           ...s.weeklyDecisions.filter((d) => d.resultId !== resultId),
           { resultId, decision, reason: reason.trim() },
-        ],
-      };
-    });
-  }, []);
+        ];
+        nextResults = s.nextWeekResults;
+        return {
+          ...s,
+          results: zone
+            ? s.results.map((r) => (r.id === resultId ? { ...r, zone } : r))
+            : s.results,
+          weeklyDecisions: nextDecisions,
+        };
+      });
+      if (zone) persist((p) => p.setResultZone(resultId, zone));
+      persist((p) => p.saveWeeklyReview(now, nextResults, nextDecisions));
+    },
+    [persist, now],
+  );
 
-  const setMorningEnergy = useCallback((v: number) => {
-    setState((s) => ({ ...s, morningEnergy: Math.max(1, Math.min(5, v)) }));
-  }, []);
+  const setMorningEnergy = useCallback(
+    (v: number) => {
+      const morningEnergy = Math.max(1, Math.min(5, v));
+      setState((s) => ({ ...s, morningEnergy }));
+      persist((p) => p.upsertCheckin(now, { morningEnergy }));
+    },
+    [persist, now],
+  );
 
-  const setAvailableMinutes = useCallback((v: number) => {
-    setState((s) => ({ ...s, availableMinutes: Math.max(0, v) }));
-  }, []);
+  const setAvailableMinutes = useCallback(
+    (v: number) => {
+      const availableMinutes = Math.max(0, v);
+      setState((s) => ({ ...s, availableMinutes }));
+      persist((p) => p.upsertCheckin(now, { availableMinutes }));
+    },
+    [persist, now],
+  );
 
   const value: StoreValue = {
     state,
     now,
+    mode: provider.mode,
+    loading,
     resources,
     priorityContext,
     priorityOf,
