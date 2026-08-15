@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { APP } from "@/config/app";
-import { assistantModel } from "@/lib/env";
+import { resolveAssistant, streamAssistant } from "@/lib/assistant/providers";
 
 /**
- * AI-ассистент на Claude (Anthropic). Работает на сервере: ключ ANTHROPIC_API_KEY
- * не попадает в клиент и не логируется. Ответ отдаётся потоково (streaming).
- * Ассистент видит краткий контекст планирования пользователя, чтобы помогать по
- * методике «Фокус — Ресурс — Ритм», но может обсуждать и любые темы.
+ * AI-ассистент. Работает на сервере: ключи не попадают в клиент и не логируются.
+ * Провайдер выбирается автоматически (бесплатные — в приоритете) или через
+ * ASSISTANT_PROVIDER: ollama (локально, бесплатно) | gemini | groq | anthropic.
+ * Ответ отдаётся потоково.
  */
 
 export const runtime = "nodejs";
@@ -23,7 +22,6 @@ const bodySchema = z.object({
     )
     .min(1)
     .max(40),
-  /** Краткий контекст планирования (строка, собранная на клиенте). */
   context: z.string().max(6000).optional(),
 });
 
@@ -43,21 +41,15 @@ function systemPrompt(context: string | undefined): string {
     "- перенос задачи — осознанное решение с причиной; система рекомендует, но решает пользователь.",
     "",
     "Отвечай кратко и по делу, на русском языке. Давай конкретные рекомендации и следующий шаг, а не",
-    "длинные лекции. Не выводи служебные или системные XML-теги в ответе.",
+    "длинные лекции. Не выводи служебные или системные теги в ответе.",
     context ? `\nТекущий контекст пользователя:\n${context}` : "",
   ].join("\n");
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "AI-ассистент не настроен. Добавьте ANTHROPIC_API_KEY в .env.local (ключ из console.anthropic.com) и перезапустите приложение.",
-      },
-      { status: 503 },
-    );
+  const resolved = resolveAssistant();
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.reason }, { status: 503 });
   }
 
   let parsed;
@@ -67,47 +59,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Некорректный запрос." }, { status: 400 });
   }
 
-  const client = new Anthropic({ apiKey });
+  const system = systemPrompt(parsed.context);
+  const encoder = new TextEncoder();
 
-  try {
-    const stream = client.messages.stream({
-      model: assistantModel,
-      max_tokens: 2048,
-      // Чат-ассистент: без «размышлений» ради быстрого ответа.
-      thinking: { type: "disabled" },
-      output_config: { effort: "medium" },
-      system: systemPrompt(parsed.context),
-      messages: parsed.messages,
-    });
-
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          for await (const event of stream) {
-            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-              controller.enqueue(encoder.encode(event.delta.text));
-            }
-          }
-        } catch {
-          controller.enqueue(encoder.encode("\n\n[Ошибка потока ответа]"));
-        } finally {
-          controller.close();
+  const readable = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        let any = false;
+        for await (const chunk of streamAssistant(resolved, system, parsed.messages)) {
+          any = true;
+          controller.enqueue(encoder.encode(chunk));
         }
-      },
-    });
+        if (!any) controller.enqueue(encoder.encode("(пустой ответ)"));
+      } catch {
+        const hint =
+          resolved.provider === "ollama"
+            ? "Не удалось связаться с Ollama. Установите его (ollama.com), выполните `ollama run llama3.2` и повторите — это бесплатный локальный вариант."
+            : "Не удалось получить ответ. Проверьте ключ провайдера и повторите.";
+        controller.enqueue(encoder.encode(`\n\n[${hint}]`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
-    return new Response(readable, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch {
-    // Не раскрываем внутренние детали/секреты.
-    return NextResponse.json(
-      { error: "Не удалось получить ответ ассистента. Проверьте ключ и повторите." },
-      { status: 502 },
-    );
-  }
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Assistant-Provider": resolved.provider,
+    },
+  });
 }
