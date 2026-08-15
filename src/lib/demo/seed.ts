@@ -100,6 +100,10 @@ export function createSeedState(now: Date = new Date()): DemoState {
     resultId: null,
     manualPriority: null,
     manualPriorityNote: null,
+    expectedResult: null,
+    completionCriterion: null,
+    nextAction: null,
+    recurrence: null,
     ...t,
   });
 
@@ -143,6 +147,11 @@ export function createSeedState(now: Date = new Date()): DemoState {
       plannedMinutes: 30,
       isRecurringToday: true,
       schedulingMode: "ordered",
+      recurrence: {
+        frequency: "weekly",
+        startDate: today,
+        weekdays: [1, 2, 3, 4, 5],
+      },
     }),
     baseTask({
       id: "t-invoice",

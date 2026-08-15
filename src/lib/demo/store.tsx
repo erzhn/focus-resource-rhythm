@@ -12,6 +12,7 @@ import {
 import { canAddToNow, type FocusResult, type FocusZone } from "@/domain/focus";
 import { buildDayPlan, type DayPlanDraft } from "@/domain/planning/dayPlan";
 import { calculatePriority, resolvePriority, type PriorityContext } from "@/domain/priority";
+import { createsDependencyCycle } from "@/domain/tasks/dependencies";
 import type { DayResources, DomainTask } from "@/domain/types";
 import { createEmptyState, createSeedState } from "./seed";
 import type { DemoState, DemoTask, ResultDecision } from "./types";
@@ -52,6 +53,9 @@ interface StoreValue {
   setNextWeekResults: (titles: string[]) => void;
   decideResult: (resultId: string, decision: ResultDecision, reason: string) => void;
   saveOnboarding: (input: OnboardingInput) => void;
+  /** Добавить зависимость (taskId зависит от dependsOnId). Возвращает ошибку при цикле. */
+  addDependency: (taskId: string, dependsOnId: string) => { ok: boolean; message: string };
+  removeDependency: (taskId: string, dependsOnId: string) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -173,6 +177,10 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         resultId: task.resultId ?? null,
         manualPriority: null,
         manualPriorityNote: null,
+        expectedResult: task.expectedResult ?? null,
+        completionCriterion: task.completionCriterion ?? null,
+        nextAction: task.nextAction ?? null,
+        recurrence: task.recurrence ?? null,
       };
       setState((s) => ({ ...s, tasks: [newTask, ...s.tasks] }));
       persist((p) => p.createTask(newTask));
@@ -385,6 +393,49 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [persist, now],
   );
 
+  const addDependency = useCallback<StoreValue["addDependency"]>(
+    (taskId, dependsOnId) => {
+      let result = { ok: true, message: "Зависимость добавлена." };
+      setState((s) => {
+        const edges = s.tasks.flatMap((t) =>
+          t.dependsOn.map((d) => ({ taskId: t.id, dependsOnId: d })),
+        );
+        if (createsDependencyCycle(edges, taskId, dependsOnId)) {
+          result = { ok: false, message: "Нельзя: возникнет циклическая зависимость." };
+          return s;
+        }
+        return {
+          ...s,
+          tasks: s.tasks.map((t) => {
+            if (t.id === taskId && !t.dependsOn.includes(dependsOnId))
+              return { ...t, dependsOn: [...t.dependsOn, dependsOnId] };
+            if (t.id === dependsOnId && !t.unblocks.includes(taskId))
+              return { ...t, unblocks: [...t.unblocks, taskId] };
+            return t;
+          }),
+        };
+      });
+      if (result.ok) persist((p) => p.addDependency(taskId, dependsOnId));
+      return result;
+    },
+    [persist],
+  );
+
+  const removeDependency = useCallback<StoreValue["removeDependency"]>(
+    (taskId, dependsOnId) => {
+      setState((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) => {
+          if (t.id === taskId) return { ...t, dependsOn: t.dependsOn.filter((d) => d !== dependsOnId) };
+          if (t.id === dependsOnId) return { ...t, unblocks: t.unblocks.filter((u) => u !== taskId) };
+          return t;
+        }),
+      }));
+      persist((p) => p.removeDependency(taskId, dependsOnId));
+    },
+    [persist],
+  );
+
   const saveOnboarding = useCallback<StoreValue["saveOnboarding"]>(
     (input) => {
       setState((s) => ({
@@ -442,6 +493,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     setNextWeekResults,
     decideResult,
     saveOnboarding,
+    addDependency,
+    removeDependency,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

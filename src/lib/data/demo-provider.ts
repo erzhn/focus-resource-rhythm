@@ -17,6 +17,8 @@ export class DemoDataProvider implements DataProvider {
   async createTask(): Promise<void> {}
   async updateTask(): Promise<void> {}
   async setResultZone(): Promise<void> {}
+  async addDependency(): Promise<void> {}
+  async removeDependency(): Promise<void> {}
   async upsertCheckin(): Promise<void> {}
   async confirmDayPlan(): Promise<void> {}
   async addPostponement(): Promise<void> {}

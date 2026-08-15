@@ -1,5 +1,6 @@
 import type { FocusZone } from "@/domain/focus";
 import type { DomainTask } from "@/domain/types";
+import type { RecurrenceRule } from "@/domain/recurrence";
 
 /** Сфера жизни (демо). */
 export interface DemoLifeArea {
@@ -25,6 +26,11 @@ export interface DemoTask extends DomainTask {
   resultId: string | null;
   manualPriority: number | null;
   manualPriorityNote: string | null;
+  expectedResult: string | null;
+  completionCriterion: string | null;
+  nextAction: string | null;
+  /** Правило повторения (null — разовая задача). */
+  recurrence: RecurrenceRule | null;
 }
 
 export interface DemoEvent {

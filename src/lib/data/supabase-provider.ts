@@ -109,6 +109,10 @@ export class SupabaseDataProvider implements DataProvider {
         resultId,
         manualPriority: (t.manual_priority as number) ?? null,
         manualPriorityNote: (t.manual_priority_note as string) ?? null,
+        expectedResult: (t.expected_result as string) ?? null,
+        completionCriterion: (t.completion_criterion as string) ?? null,
+        nextAction: (t.next_action as string) ?? null,
+        recurrence: null,
       };
     });
 
@@ -214,6 +218,9 @@ export class SupabaseDataProvider implements DataProvider {
     if (patch.plannedMoneyMinor !== undefined) columns.planned_money = patch.plannedMoneyMinor / 100;
     if (patch.schedulingMode !== undefined) columns.scheduling_mode = patch.schedulingMode;
     if (patch.description !== undefined) columns.description = patch.description;
+    if (patch.expectedResult !== undefined) columns.expected_result = patch.expectedResult;
+    if (patch.completionCriterion !== undefined) columns.completion_criterion = patch.completionCriterion;
+    if (patch.nextAction !== undefined) columns.next_action = patch.nextAction;
     if (patch.manualPriority !== undefined) columns.manual_priority = patch.manualPriority;
     if (patch.manualPriorityNote !== undefined) columns.manual_priority_note = patch.manualPriorityNote;
     if (Object.keys(columns).length === 0) return;
@@ -225,6 +232,24 @@ export class SupabaseDataProvider implements DataProvider {
     // id может принадлежать goals или projects — обновляем обе таблицы (одна из них no-op).
     await this.client.from("goals").update({ zone }).eq("id", resultId);
     await this.client.from("projects").update({ zone }).eq("id", resultId);
+  }
+
+  async addDependency(taskId: string, dependsOnId: string): Promise<void> {
+    const user_id = await this.userId();
+    // Серверный триггер prevent_task_dependency_cycle дополнительно защищает от циклов.
+    const { error } = await this.client
+      .from("task_dependencies")
+      .insert({ user_id, task_id: taskId, depends_on_task_id: dependsOnId });
+    if (error) throw error;
+  }
+
+  async removeDependency(taskId: string, dependsOnId: string): Promise<void> {
+    const { error } = await this.client
+      .from("task_dependencies")
+      .delete()
+      .eq("task_id", taskId)
+      .eq("depends_on_task_id", dependsOnId);
+    if (error) throw error;
   }
 
   async upsertCheckin(

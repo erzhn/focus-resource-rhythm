@@ -34,6 +34,8 @@ export interface DataProvider {
   createTask(task: DemoTask): Promise<void>;
   updateTask(id: string, patch: Partial<DemoTask>): Promise<void>;
   setResultZone(resultId: string, zone: FocusZone): Promise<void>;
+  addDependency(taskId: string, dependsOnId: string): Promise<void>;
+  removeDependency(taskId: string, dependsOnId: string): Promise<void>;
 
   upsertCheckin(
     date: Date,

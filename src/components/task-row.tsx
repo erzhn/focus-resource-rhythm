@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Info, Lock } from "lucide-react";
+import { AlertTriangle, Check, Info, Lock, Pencil } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
+import { useTaskEdit } from "@/components/task-edit";
 import type { DemoTask } from "@/lib/demo/types";
 import { TASK_STATUS_LABELS } from "@/domain/types";
 import { formatDate, formatMinutes } from "@/lib/format";
@@ -29,6 +30,7 @@ export function PriorityPill({ score, manual }: { score: number; manual?: boolea
 
 export function TaskRow({ task, showActions = true }: { task: DemoTask; showActions?: boolean }) {
   const { priorityOf, toggleDone, setManualPriority } = useStore();
+  const { open: openEdit } = useTaskEdit();
   const [expanded, setExpanded] = useState(false);
   const p = priorityOf(task);
   const sys = p.system;
@@ -67,6 +69,10 @@ export function TaskRow({ task, showActions = true }: { task: DemoTask; showActi
             <button onClick={() => setExpanded((v) => !v)} className="text-primary">
               <Info className="mr-0.5 inline h-3 w-3" />
               почему
+            </button>
+            <button onClick={() => openEdit(task.id)} className="text-primary">
+              <Pencil className="mr-0.5 inline h-3 w-3" />
+              изменить
             </button>
           </div>
         </div>
