@@ -104,6 +104,8 @@ export function createSeedState(now: Date = new Date()): DemoState {
     completionCriterion: null,
     nextAction: null,
     recurrence: null,
+    scheduledStart: null,
+    scheduledEnd: null,
     ...t,
   });
 
@@ -121,6 +123,8 @@ export function createSeedState(now: Date = new Date()): DemoState {
       dueDate: today,
       schedulingMode: "timeblock",
       unblocks: ["t-deploy"],
+      scheduledStart: at(11, 0),
+      scheduledEnd: at(12, 30),
     }),
     baseTask({
       id: "t-deploy",

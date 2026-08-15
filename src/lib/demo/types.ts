@@ -31,6 +31,9 @@ export interface DemoTask extends DomainTask {
   nextAction: string | null;
   /** Правило повторения (null — разовая задача). */
   recurrence: RecurrenceRule | null;
+  /** Точное время для режима «временной блок» (иначе null). */
+  scheduledStart: Date | null;
+  scheduledEnd: Date | null;
 }
 
 export interface DemoEvent {

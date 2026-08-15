@@ -1,5 +1,5 @@
 import type { FocusZone } from "@/domain/focus";
-import type { DemoPostponement, DemoState, DemoTask, ResultDecision } from "@/lib/demo/types";
+import type { DemoEvent, DemoPostponement, DemoState, DemoTask, ResultDecision } from "@/lib/demo/types";
 
 /**
  * Абстракция источника данных. Экраны через стор работают с провайдером, не зная,
@@ -36,6 +36,9 @@ export interface DataProvider {
   setResultZone(resultId: string, zone: FocusZone): Promise<void>;
   addDependency(taskId: string, dependsOnId: string): Promise<void>;
   removeDependency(taskId: string, dependsOnId: string): Promise<void>;
+  createEvent(event: DemoEvent): Promise<void>;
+  updateEvent(id: string, patch: Partial<Omit<DemoEvent, "id">>): Promise<void>;
+  deleteEvent(id: string): Promise<void>;
 
   upsertCheckin(
     date: Date,

@@ -95,6 +95,12 @@ function EditForm({
   const [completionCriterion, setCompletionCriterion] = useState(task.completionCriterion ?? "");
   const [nextAction, setNextAction] = useState(task.nextAction ?? "");
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(task.recurrence);
+  const [scheduledStart, setScheduledStart] = useState(
+    task.scheduledStart ? format(task.scheduledStart, "yyyy-MM-dd'T'HH:mm") : "",
+  );
+  const [scheduledEnd, setScheduledEnd] = useState(
+    task.scheduledEnd ? format(task.scheduledEnd, "yyyy-MM-dd'T'HH:mm") : "",
+  );
   const [depNotice, setDepNotice] = useState<string | null>(null);
 
   const otherTasks = state.tasks.filter((t) => t.id !== taskId);
@@ -117,6 +123,8 @@ function EditForm({
       nextAction: nextAction.trim() || null,
       recurrence,
       isRecurringToday: recurrence !== null,
+      scheduledStart: schedulingMode === "timeblock" && scheduledStart ? new Date(scheduledStart) : null,
+      scheduledEnd: schedulingMode === "timeblock" && scheduledEnd ? new Date(scheduledEnd) : null,
     });
     if (status !== task.status) setTaskStatus(taskId, status);
     onClose();
@@ -185,6 +193,19 @@ function EditForm({
           </button>
         ))}
       </div>
+
+      {schedulingMode === "timeblock" && (
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-border p-3">
+          <label className="block">
+            <span className="text-xs font-medium text-muted">Начало блока</span>
+            <input type="datetime-local" value={scheduledStart} onChange={(e) => setScheduledStart(e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-muted">Окончание блока</span>
+            <input type="datetime-local" value={scheduledEnd} onChange={(e) => setScheduledEnd(e.target.value)} className={inputCls} />
+          </label>
+        </div>
+      )}
 
       <details className="rounded-xl border border-border p-3">
         <summary className="cursor-pointer text-xs font-medium text-primary">Результат и критерий</summary>

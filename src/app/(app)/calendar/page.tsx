@@ -12,10 +12,12 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { WeekView } from "@/components/calendar/week-view";
-import { Card, CardTitle } from "@/components/ui/primitives";
+import { EventModal, type EditingEvent } from "@/components/calendar/event-modal";
+import { findConflicts, type TimeBlock } from "@/domain/schedule/conflicts";
+import { Button, Card, CardTitle } from "@/components/ui/primitives";
 import { formatDate, formatMinutes, formatTime } from "@/lib/format";
 
 type Mode = "day" | "week" | "month" | "year";
@@ -29,6 +31,7 @@ const MODES: { key: Mode; label: string }[] = [
 export default function CalendarPage() {
   const [mode, setMode] = useState<Mode>("week");
   const [cursor, setCursor] = useState(() => new Date());
+  const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
 
   const shift = (dir: number) => {
     if (mode === "day") setCursor((c) => addDays(c, dir));
@@ -44,18 +47,23 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold tracking-tight">Календарь</h1>
           <p className="text-sm text-muted">{formatDate(cursor)}</p>
         </div>
-        <div className="flex items-center gap-1 rounded-xl border border-border p-1">
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs ${
-                mode === m.key ? "bg-primary text-primary-fg" : "hover:bg-surface-2"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border border-border p-1">
+            {MODES.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setMode(m.key)}
+                className={`rounded-lg px-3 py-1.5 text-xs ${
+                  mode === m.key ? "bg-primary text-primary-fg" : "hover:bg-surface-2"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <Button size="sm" onClick={() => setEditingEvent({ mode: "new", date: cursor })}>
+            <Plus className="h-4 w-4" /> Событие
+          </Button>
         </div>
       </header>
 
@@ -71,22 +79,43 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {mode === "day" && <DayView cursor={cursor} />}
+      {mode === "day" && <DayView cursor={cursor} onEditEvent={(e) => setEditingEvent({ mode: "edit", event: e })} />}
       {mode === "week" && <WeekView cursor={cursor} />}
       {mode === "month" && <MonthView cursor={cursor} onPickDay={(d) => { setCursor(d); setMode("day"); }} />}
       {mode === "year" && <YearView cursor={cursor} onPickMonth={(d) => { setCursor(d); setMode("month"); }} />}
+
+      {editingEvent && <EventModal editing={editingEvent} onClose={() => setEditingEvent(null)} />}
     </div>
   );
 }
 
-function DayView({ cursor }: { cursor: Date }) {
-  const { state } = useStore();
+function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: import("@/lib/demo/types").DemoEvent) => void }) {
+  const { state, deleteEvent } = useStore();
   const events = state.events.filter((e) => isSameDay(e.start, cursor)).sort((a, b) => a.start.getTime() - b.start.getTime());
   const tasks = state.tasks.filter((t) => t.dueDate && isSameDay(t.dueDate, cursor));
+  const timeblocks = tasks.filter((t) => t.scheduledStart && t.scheduledEnd);
   const planned = tasks.reduce((s, t) => s + t.plannedMinutes, 0);
+
+  // Конфликты: фиксированные события + временные блоки задач.
+  const blocks: TimeBlock[] = [
+    ...events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, fixed: e.fixed })),
+    ...timeblocks.map((t) => ({ id: t.id, title: t.title, start: t.scheduledStart!, end: t.scheduledEnd!, fixed: false })),
+  ];
+  const conflicts = findConflicts(blocks);
 
   return (
     <div className="space-y-3">
+      {conflicts.length > 0 && (
+        <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
+          <CardTitle className="text-[var(--warning)]">Конфликты расписания</CardTitle>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+            {conflicts.map((c, i) => (
+              <li key={i}>«{c.a.title}» и «{c.b.title}» пересекаются на {c.overlapMinutes} мин.</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card>
         <CardTitle>События</CardTitle>
         {events.length === 0 ? (
@@ -94,14 +123,33 @@ function DayView({ cursor }: { cursor: Date }) {
         ) : (
           <ul className="mt-2 space-y-1 text-sm">
             {events.map((e) => (
-              <li key={e.id} className="flex justify-between">
+              <li key={e.id} className="flex items-center justify-between">
                 <span>{e.title} {e.fixed ? "" : "(гибкое)"}</span>
-                <span className="text-muted">{formatTime(e.start)}–{formatTime(e.end)}</span>
+                <span className="flex items-center gap-2 text-muted">
+                  {formatTime(e.start)}–{formatTime(e.end)}
+                  <button onClick={() => onEditEvent(e)} className="text-primary">изменить</button>
+                  <button onClick={() => deleteEvent(e.id)} className="text-[var(--danger)]">удалить</button>
+                </span>
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      {timeblocks.length > 0 && (
+        <Card>
+          <CardTitle>Временные блоки</CardTitle>
+          <ul className="mt-2 space-y-1 text-sm">
+            {timeblocks.map((t) => (
+              <li key={t.id} className="flex justify-between">
+                <span>{t.title}</span>
+                <span className="text-muted">{formatTime(t.scheduledStart!)}–{formatTime(t.scheduledEnd!)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card>
         <div className="flex items-center justify-between">
           <CardTitle>Задачи дня</CardTitle>

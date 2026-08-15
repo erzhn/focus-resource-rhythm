@@ -4,6 +4,7 @@ import type { FocusZone } from "@/domain/focus";
 import { createClient } from "@/lib/supabase/client";
 import { createEmptyState } from "@/lib/demo/seed";
 import type {
+  DemoEvent,
   DemoLifeArea,
   DemoPostponement,
   DemoResult,
@@ -113,6 +114,8 @@ export class SupabaseDataProvider implements DataProvider {
         completionCriterion: (t.completion_criterion as string) ?? null,
         nextAction: (t.next_action as string) ?? null,
         recurrence: null,
+        scheduledStart: null,
+        scheduledEnd: null,
       };
     });
 
@@ -249,6 +252,37 @@ export class SupabaseDataProvider implements DataProvider {
       .delete()
       .eq("task_id", taskId)
       .eq("depends_on_task_id", dependsOnId);
+    if (error) throw error;
+  }
+
+  async createEvent(event: DemoEvent): Promise<void> {
+    const user_id = await this.userId();
+    const { error } = await this.client.from("personal_events").insert({
+      id: event.id,
+      user_id,
+      title: event.title,
+      starts_at: event.start.toISOString(),
+      ends_at: event.end.toISOString(),
+      fixed: event.fixed,
+      blocks_availability: event.blocksAvailability,
+    });
+    if (error) throw error;
+  }
+
+  async updateEvent(id: string, patch: Partial<Omit<DemoEvent, "id">>): Promise<void> {
+    const columns: Row = {};
+    if (patch.title !== undefined) columns.title = patch.title;
+    if (patch.start !== undefined) columns.starts_at = patch.start.toISOString();
+    if (patch.end !== undefined) columns.ends_at = patch.end.toISOString();
+    if (patch.fixed !== undefined) columns.fixed = patch.fixed;
+    if (patch.blocksAvailability !== undefined) columns.blocks_availability = patch.blocksAvailability;
+    if (Object.keys(columns).length === 0) return;
+    const { error } = await this.client.from("personal_events").update(columns).eq("id", id);
+    if (error) throw error;
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    const { error } = await this.client.from("personal_events").delete().eq("id", id);
     if (error) throw error;
   }
 

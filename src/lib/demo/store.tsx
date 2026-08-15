@@ -15,7 +15,7 @@ import { calculatePriority, resolvePriority, type PriorityContext } from "@/doma
 import { createsDependencyCycle } from "@/domain/tasks/dependencies";
 import type { DayResources, DomainTask } from "@/domain/types";
 import { createEmptyState, createSeedState } from "./seed";
-import type { DemoState, DemoTask, ResultDecision } from "./types";
+import type { DemoEvent, DemoState, DemoTask, ResultDecision } from "./types";
 import type { TaskStatus } from "@/domain/types";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { DataProvider, OnboardingInput } from "@/lib/data/provider";
@@ -56,6 +56,9 @@ interface StoreValue {
   /** Добавить зависимость (taskId зависит от dependsOnId). Возвращает ошибку при цикле. */
   addDependency: (taskId: string, dependsOnId: string) => { ok: boolean; message: string };
   removeDependency: (taskId: string, dependsOnId: string) => void;
+  addEvent: (event: Omit<DemoEvent, "id">) => void;
+  updateEvent: (id: string, patch: Partial<Omit<DemoEvent, "id">>) => void;
+  deleteEvent: (id: string) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -181,6 +184,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         completionCriterion: task.completionCriterion ?? null,
         nextAction: task.nextAction ?? null,
         recurrence: task.recurrence ?? null,
+        scheduledStart: task.scheduledStart ?? null,
+        scheduledEnd: task.scheduledEnd ?? null,
       };
       setState((s) => ({ ...s, tasks: [newTask, ...s.tasks] }));
       persist((p) => p.createTask(newTask));
@@ -449,6 +454,34 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const addEvent = useCallback<StoreValue["addEvent"]>(
+    (event) => {
+      const newEvent: DemoEvent = { ...event, id: nextId() };
+      setState((s) => ({ ...s, events: [...s.events, newEvent] }));
+      persist((p) => p.createEvent(newEvent));
+    },
+    [persist],
+  );
+
+  const updateEvent = useCallback<StoreValue["updateEvent"]>(
+    (id, patch) => {
+      setState((s) => ({
+        ...s,
+        events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      }));
+      persist((p) => p.updateEvent(id, patch));
+    },
+    [persist],
+  );
+
+  const deleteEvent = useCallback<StoreValue["deleteEvent"]>(
+    (id) => {
+      setState((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
+      persist((p) => p.deleteEvent(id));
+    },
+    [persist],
+  );
+
   const setMorningEnergy = useCallback(
     (v: number) => {
       const morningEnergy = Math.max(1, Math.min(5, v));
@@ -495,6 +528,9 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     saveOnboarding,
     addDependency,
     removeDependency,
+    addEvent,
+    updateEvent,
+    deleteEvent,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
