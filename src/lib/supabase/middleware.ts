@@ -30,13 +30,28 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Неавторизованных отправляем на /login (кроме публичных путей).
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/login") || path.startsWith("/api/integrations");
+
+  // Неавторизованных отправляем на /login (кроме публичных путей).
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Авторизованных, но не прошедших первичную настройку — на /onboarding.
+  if (user && !isPublic && !path.startsWith("/onboarding")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile && profile.onboarded_at === null) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

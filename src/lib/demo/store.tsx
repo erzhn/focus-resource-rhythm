@@ -17,7 +17,7 @@ import { createEmptyState, createSeedState } from "./seed";
 import type { DemoState, DemoTask, ResultDecision } from "./types";
 import type { TaskStatus } from "@/domain/types";
 import { isSupabaseConfigured } from "@/lib/env";
-import type { DataProvider } from "@/lib/data/provider";
+import type { DataProvider, OnboardingInput } from "@/lib/data/provider";
 import { DemoDataProvider } from "@/lib/data/demo-provider";
 import { SupabaseDataProvider } from "@/lib/data/supabase-provider";
 
@@ -51,6 +51,7 @@ interface StoreValue {
   saveEveningReview: (conclusion: string) => void;
   setNextWeekResults: (titles: string[]) => void;
   decideResult: (resultId: string, decision: ResultDecision, reason: string) => void;
+  saveOnboarding: (input: OnboardingInput) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -384,6 +385,19 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [persist, now],
   );
 
+  const saveOnboarding = useCallback<StoreValue["saveOnboarding"]>(
+    (input) => {
+      setState((s) => ({
+        ...s,
+        reserveRatio: input.reserveRatio,
+        availableMinutes: input.availableMinutes,
+        dailyMoneyLimitMajor: input.dailyMoneyLimitMajor,
+      }));
+      persist((p) => p.saveOnboarding(input));
+    },
+    [persist],
+  );
+
   const setMorningEnergy = useCallback(
     (v: number) => {
       const morningEnergy = Math.max(1, Math.min(5, v));
@@ -427,6 +441,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     saveEveningReview,
     setNextWeekResults,
     decideResult,
+    saveOnboarding,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

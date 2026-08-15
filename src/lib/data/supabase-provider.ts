@@ -12,7 +12,7 @@ import type {
   ResultDecision,
 } from "@/lib/demo/types";
 import type { Scale1to5, SchedulingMode, TaskStatus } from "@/domain/types";
-import type { DataProvider } from "./provider";
+import type { DataProvider, OnboardingInput } from "./provider";
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 type Row = Record<string, unknown>;
@@ -157,6 +157,28 @@ export class SupabaseDataProvider implements DataProvider {
     }
 
     return state;
+  }
+
+  async saveOnboarding(input: OnboardingInput): Promise<void> {
+    const user_id = await this.userId();
+    const { error: sErr } = await this.client.from("user_settings").upsert(
+      {
+        user_id,
+        timezone: input.timezone,
+        currency: input.currency,
+        time_reserve_ratio: input.reserveRatio,
+        daily_money_limit: input.dailyMoneyLimitMajor,
+        work_start: input.workStart,
+        work_end: input.workEnd,
+        morning_ritual_at: input.morningRitualAt,
+        evening_ritual_at: input.eveningRitualAt,
+      },
+      { onConflict: "user_id" },
+    );
+    if (sErr) throw sErr;
+    // Отмечаем завершённый онбординг + фиксируем доступное время в чек-ине на сегодня.
+    await this.client.from("profiles").update({ onboarded_at: new Date().toISOString() }).eq("id", user_id);
+    await this.upsertCheckin(new Date(), { availableMinutes: input.availableMinutes });
   }
 
   async createTask(task: DemoTask): Promise<void> {

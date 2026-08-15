@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Info } from "lucide-react";
+import { Info, LogOut } from "lucide-react";
 import { APP } from "@/config/app";
 import { isDemoMode } from "@/lib/env";
 import { NAV_ITEMS } from "@/components/nav";
+import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
@@ -45,7 +46,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        {isDemoMode && <DemoBadge />}
+        {isDemoMode ? (
+          <DemoBadge />
+        ) : (
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted transition hover:bg-surface-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Выйти
+            </button>
+          </form>
+        )}
       </aside>
 
       {/* Контент */}

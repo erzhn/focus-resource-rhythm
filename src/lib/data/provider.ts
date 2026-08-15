@@ -9,11 +9,27 @@ import type { DemoPostponement, DemoState, DemoTask, ResultDecision } from "@/li
  * отвечает за загрузку снимка и запись мутаций. Мутации применяются оптимистично
  * локально, а провайдер персистит их (в демо — no-op).
  */
+/** Данные первичной настройки (онбординга). */
+export interface OnboardingInput {
+  timezone: string;
+  currency: string;
+  availableMinutes: number;
+  reserveRatio: number;
+  dailyMoneyLimitMajor: number | null;
+  workStart: string; // HH:mm
+  workEnd: string;
+  morningRitualAt: string;
+  eveningRitualAt: string;
+}
+
 export interface DataProvider {
   readonly mode: "demo" | "supabase";
 
   /** Загружает полный снимок состояния пользователя. */
   loadSnapshot(now: Date): Promise<DemoState>;
+
+  /** Сохраняет настройки и отмечает завершённый онбординг. */
+  saveOnboarding(input: OnboardingInput): Promise<void>;
 
   createTask(task: DemoTask): Promise<void>;
   updateTask(id: string, patch: Partial<DemoTask>): Promise<void>;

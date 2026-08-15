@@ -13,6 +13,7 @@ export class DemoDataProvider implements DataProvider {
     return createSeedState(now);
   }
 
+  async saveOnboarding(): Promise<void> {}
   async createTask(): Promise<void> {}
   async updateTask(): Promise<void> {}
   async setResultZone(): Promise<void> {}
