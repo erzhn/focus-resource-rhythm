@@ -25,7 +25,9 @@ const env = (k: string) => process.env[k]?.trim() || "";
 /** Модель по умолчанию для каждого провайдера (можно переопределить ASSISTANT_MODEL). */
 const DEFAULT_MODEL: Record<AssistantProvider, string> = {
   ollama: env("OLLAMA_MODEL") || "llama3.2",
-  gemini: "gemini-2.0-flash",
+  // Алиас «-latest» всегда указывает на актуальную бесплатную flash-модель
+  // (конкретные версии со временем выводятся из обслуживания).
+  gemini: "gemini-flash-latest",
   groq: "llama-3.3-70b-versatile",
   anthropic: "claude-opus-5",
 };
