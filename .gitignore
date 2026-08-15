@@ -47,3 +47,7 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# supabase local CLI state
+/supabase/.temp/
+/supabase/.branches/

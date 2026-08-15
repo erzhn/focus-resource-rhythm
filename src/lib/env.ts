@@ -12,3 +12,10 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 /** true, если приложение сейчас в демонстрационном режиме (без реальной БД). */
 export const isDemoMode = !isSupabaseConfigured;
+
+/**
+ * AI-ассистент (Claude). Ключ только серверный — на клиент не отдаётся.
+ * Клиент узнаёт о доступности через ответ API-роута, а не через эту переменную.
+ */
+export const isAssistantConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
+export const assistantModel = process.env.ASSISTANT_MODEL || "claude-opus-5";

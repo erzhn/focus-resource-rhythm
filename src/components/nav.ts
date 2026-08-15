@@ -5,6 +5,7 @@ import {
   ListChecks,
   Bell,
   Settings,
+  Sparkles,
   Target,
   Wallet,
   ClipboardCheck,
@@ -21,6 +22,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Сегодня", icon: Home, primary: true },
+  { href: "/assistant", label: "Ассистент", icon: Sparkles, primary: true },
   { href: "/plans", label: "Все планы", icon: ListChecks, primary: true },
   { href: "/goals", label: "Цели и проекты", icon: Target, primary: true },
   { href: "/calendar", label: "Календарь", icon: CalendarDays, primary: true },

@@ -77,6 +77,11 @@ lint ✓ · typecheck ✓ · 57 unit-тестов ✓ · production build ✓
 - **Ресурсы** — план/факт и лимиты времени, сил и денег (валюта `KGS`).
 - **Уведомления**, ведущие к конкретному действию.
 
+### AI-ассистент
+- **Чат-ассистент на Claude (Anthropic)** — «поговорить обо всём» и помощь по методике; видит краткий
+  контекст планирования (план дня, активные результаты, ресурсы), отвечает потоково. Ключ только на
+  сервере. Включается переменной `ANTHROPIC_API_KEY`; без ключа приложение работает как обычно.
+
 ### Инфраструктура
 - **Двусторонняя синхронизация календарей** Google и Microsoft: единый интерфейс `CalendarProvider`,
   OAuth со `state` + PKCE, шифрование refresh-токенов (AES-256-GCM), разрешение конфликтов
@@ -153,6 +158,8 @@ npm run dev
 | `TOKEN_ENCRYPTION_KEY` | 32-байтовый ключ (base64) для шифрования OAuth-токенов | **только сервер** |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | OAuth Google Calendar | сервер |
 | `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` | OAuth Microsoft Graph | сервер |
+| `ANTHROPIC_API_KEY` | Ключ Claude для AI-ассистента (console.anthropic.com) | **только сервер** |
+| `ASSISTANT_MODEL` | Модель ассистента (по умолчанию `claude-opus-5`) | сервер |
 | `APP_BASE_URL` | Публичный URL для webhook-ов | сервер |
 
 > Секреты в репозиторий не коммитятся. Service-role ключ никогда не попадает в клиентский бандл;
