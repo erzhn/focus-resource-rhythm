@@ -15,20 +15,22 @@ import {
 export interface NavItem {
   href: string;
   label: string;
+  /** Короткая подпись для нижней мобильной навигации. */
+  short?: string;
   icon: LucideIcon;
   /** Показывать в нижней мобильной навигации (главные разделы). */
   primary?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Сегодня", icon: Home, primary: true },
-  { href: "/assistant", label: "Ассистент", icon: Sparkles, primary: true },
-  { href: "/plans", label: "Все планы", icon: ListChecks, primary: true },
-  { href: "/goals", label: "Цели и проекты", icon: Target, primary: true },
-  { href: "/calendar", label: "Календарь", icon: CalendarDays, primary: true },
+  { href: "/", label: "Сегодня", short: "Сегодня", icon: Home, primary: true },
+  { href: "/assistant", label: "Ассистент", short: "Ассистент", icon: Sparkles, primary: true },
+  { href: "/plans", label: "Все планы", short: "Планы", icon: ListChecks, primary: true },
+  { href: "/goals", label: "Цели и проекты", short: "Цели", icon: Target, primary: true },
+  { href: "/calendar", label: "Календарь", short: "Календарь", icon: CalendarDays, primary: true },
   { href: "/resources", label: "Ресурсы", icon: Wallet },
   { href: "/stats", label: "Статистика", icon: BarChart3 },
   { href: "/reviews", label: "Сверки", icon: ClipboardCheck },
   { href: "/notifications", label: "Уведомления", icon: Bell },
-  { href: "/settings", label: "Настройки", icon: Settings, primary: true },
+  { href: "/settings", label: "Настройки", short: "Ещё", icon: Settings, primary: true },
 ];

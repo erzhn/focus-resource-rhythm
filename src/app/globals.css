@@ -1,70 +1,172 @@
 @import "tailwindcss";
 
 /*
-  «Фокус — Ресурс — Ритм» — спокойная, современная тема.
-  Цвет не является единственным носителем смысла: везде дублируется текстом/иконкой.
+  «Фокус — Ресурс — Ритм» — дизайн-система.
+  Тёплый светлый фон / графитовая тьма. Акцент — индиго. Ресурс — зелёный,
+  внимание/перегрузка — коралловый. Уровни поверхностей вместо обводок,
+  мягкие тени, выразительная типографика, целевые анимации.
+  Цвет не единственный носитель смысла — всё дублируется текстом/иконкой.
 */
+
 :root {
-  --background: #f7f7f5;
-  --surface: #ffffff;
-  --surface-2: #f2f2ef;
-  --foreground: #1c1c1a;
-  --muted: #6b6b66;
-  --border: #e4e4df;
-  --primary: #3a5a40;
+  /* Поверхности (тёплый свет) */
+  --bg: #f4f1ea;
+  --bg-tint-a: #efe7f7; /* очень деликатный индиго-подтон для фона */
+  --bg-tint-b: #eaf2ec; /* зелёный подтон */
+  --surface: #fffdf9;
+  --surface-2: #efeae0;
+  --surface-3: #e6dfd2;
+  --foreground: #201e1a;
+  --muted: #6c675c;
+  --muted-2: #948d80;
+  --border: #e6ded1;
+  --border-strong: #d6ccb9;
+
+  /* Акценты */
+  --primary: #4f46e5;
+  --primary-strong: #4338ca;
   --primary-fg: #ffffff;
-  --ring: #3a5a40;
+  --primary-soft: rgba(79, 70, 229, 0.1);
+  --ring: #4f46e5;
+
+  --resource: #2fa36a;
+  --resource-soft: rgba(47, 163, 106, 0.12);
+  --attention: #ef6a4d;
+  --attention-soft: rgba(239, 106, 77, 0.12);
 
   /* Зоны фокуса */
-  --zone-now: #2f6f4f;
-  --zone-next: #3b6ea5;
-  --zone-later: #8a7a3a;
-  --zone-declined: #8a8a85;
+  --zone-now: #4f46e5;
+  --zone-next: #0d9488;
+  --zone-later: #b7862f;
+  --zone-declined: #8b8781;
 
   /* Уровень сил */
-  --energy-low: #b4432f;
-  --energy-medium: #b5892f;
-  --energy-high: #2f7d4f;
+  --energy-low: #ef6a4d;
+  --energy-medium: #c0863a;
+  --energy-high: #2fa36a;
 
-  /* Статусы / сигналы */
-  --danger: #b4432f;
-  --warning: #b5892f;
-  --success: #2f7d4f;
+  /* Сигналы */
+  --danger: #d7513a;
+  --warning: #bd8235;
+  --success: #2fa36a;
+
+  /* Тени */
+  --shadow-sm: 0 1px 2px rgba(40, 30, 15, 0.06);
+  --shadow: 0 4px 16px -6px rgba(40, 30, 15, 0.12), 0 2px 6px -3px rgba(40, 30, 15, 0.07);
+  --shadow-lg: 0 20px 44px -16px rgba(40, 30, 15, 0.2);
+  --shadow-primary: 0 14px 34px -12px rgba(79, 70, 229, 0.4);
+
+  /* Радиусы */
+  --r-sm: 0.6rem;
+  --r: 0.95rem;
+  --r-lg: 1.35rem;
+  --r-xl: 1.9rem;
+
+  /* Анимация */
+  --dur-fast: 150ms;
+  --dur: 220ms;
+  --dur-slow: 340ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #14140f;
-    --surface: #1d1d18;
-    --surface-2: #24241e;
-    --foreground: #ecebe4;
-    --muted: #9a9a92;
-    --border: #33332c;
-    --primary: #8bbf9a;
-    --primary-fg: #14140f;
-    --ring: #8bbf9a;
-    --zone-now: #6cc79a;
-    --zone-next: #7fb0e0;
-    --zone-later: #d3bd6a;
-    --zone-declined: #a0a099;
-    --energy-low: #e0745f;
+  :root:not([data-theme="light"]) {
+    --bg: #141519;
+    --bg-tint-a: #1a1830;
+    --bg-tint-b: #14201c;
+    --surface: #1c1e24;
+    --surface-2: #23262e;
+    --surface-3: #2c313b;
+    --foreground: #ece9e2;
+    --muted: #9a938a;
+    --muted-2: #7b756b;
+    --border: #2f333c;
+    --border-strong: #3b404b;
+
+    --primary: #838bf7;
+    --primary-strong: #6366f1;
+    --primary-fg: #15151b;
+    --primary-soft: rgba(131, 139, 247, 0.16);
+    --ring: #838bf7;
+
+    --resource: #57c48c;
+    --resource-soft: rgba(87, 196, 140, 0.16);
+    --attention: #f47e63;
+    --attention-soft: rgba(244, 126, 99, 0.16);
+
+    --zone-now: #838bf7;
+    --zone-next: #2dd4bf;
+    --zone-later: #d9b25f;
+    --zone-declined: #9a948a;
+
+    --energy-low: #f47e63;
     --energy-medium: #e0b45f;
-    --energy-high: #6cc79a;
-    --danger: #e0745f;
+    --energy-high: #57c48c;
+
+    --danger: #f0745c;
     --warning: #e0b45f;
-    --success: #6cc79a;
+    --success: #57c48c;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.55), 0 2px 6px -3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 26px 54px -18px rgba(0, 0, 0, 0.66);
+    --shadow-primary: 0 14px 34px -10px rgba(99, 102, 241, 0.5);
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #141519;
+  --bg-tint-a: #1a1830;
+  --bg-tint-b: #14201c;
+  --surface: #1c1e24;
+  --surface-2: #23262e;
+  --surface-3: #2c313b;
+  --foreground: #ece9e2;
+  --muted: #9a938a;
+  --muted-2: #7b756b;
+  --border: #2f333c;
+  --border-strong: #3b404b;
+  --primary: #838bf7;
+  --primary-strong: #6366f1;
+  --primary-fg: #15151b;
+  --primary-soft: rgba(131, 139, 247, 0.16);
+  --ring: #838bf7;
+  --resource: #57c48c;
+  --resource-soft: rgba(87, 196, 140, 0.16);
+  --attention: #f47e63;
+  --attention-soft: rgba(244, 126, 99, 0.16);
+  --zone-now: #838bf7;
+  --zone-next: #2dd4bf;
+  --zone-later: #d9b25f;
+  --zone-declined: #9a948a;
+  --energy-low: #f47e63;
+  --energy-medium: #e0b45f;
+  --energy-high: #57c48c;
+  --danger: #f0745c;
+  --warning: #e0b45f;
+  --success: #57c48c;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.55), 0 2px 6px -3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 26px 54px -18px rgba(0, 0, 0, 0.66);
+  --shadow-primary: 0 14px 34px -10px rgba(99, 102, 241, 0.5);
+}
+
 @theme inline {
-  --color-background: var(--background);
+  --color-background: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
   --color-primary-fg: var(--primary-fg);
+  --color-resource: var(--resource);
+  --color-attention: var(--attention);
   --color-zone-now: var(--zone-now);
   --color-zone-next: var(--zone-next);
   --color-zone-later: var(--zone-later);
@@ -75,21 +177,76 @@
   --color-danger: var(--danger);
   --color-warning: var(--warning);
   --color-success: var(--success);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-manrope);
+  --radius-sm: var(--r-sm);
+  --radius: var(--r);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
 }
 
 * {
   border-color: var(--border);
 }
 
+html {
+  color-scheme: light dark;
+}
+
 body {
-  background: var(--background);
+  background-color: var(--bg);
+  /* Деликатная тёплая текстура из двух очень мягких радиальных подтонов. */
+  background-image:
+    radial-gradient(120% 90% at 100% 0%, var(--bg-tint-a) 0%, transparent 55%),
+    radial-gradient(120% 90% at 0% 100%, var(--bg-tint-b) 0%, transparent 55%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-manrope), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Заголовки — плотнее межбуквенное расстояние для редакционного характера. */
+h1, h2, h3 {
+  letter-spacing: -0.018em;
 }
 
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Тонкие скроллбары в тон поверхностям. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+
+/* Утилиты поверхностей и теней. */
+.shadow-soft { box-shadow: var(--shadow); }
+.shadow-soft-lg { box-shadow: var(--shadow-lg); }
+.shadow-primary { box-shadow: var(--shadow-primary); }
+
+/* Мерцающий скелет загрузки. */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+/* Сокращение движения: убираем декоративную анимацию, оставляем читаемость. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  body { background-attachment: scroll; }
 }

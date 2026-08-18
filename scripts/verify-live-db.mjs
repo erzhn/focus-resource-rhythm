@@ -7,6 +7,7 @@
  * Запуск:  node scripts/verify-live-db.mjs
  * Читает ключи из .env.local (значения не печатаются).
  */
+/* eslint-disable @typescript-eslint/no-unused-expressions -- краткие тернарные ok()/bad() в тест-скрипте */
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 

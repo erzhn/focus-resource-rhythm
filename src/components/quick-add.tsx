@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { motion } from "motion/react";
 import { Plus, Sparkles, X } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { formulationService, type FormulationSuggestion } from "@/domain/formulation";
@@ -160,13 +161,16 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Плавающая кнопка быстрого добавления (доступна большим пальцем). */}
-      <button
+      <motion.button
         onClick={ctxValue.open}
         aria-label="Быстро добавить задачу"
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-fg shadow-lg transition hover:opacity-90 md:bottom-6 md:right-6"
+        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.06 }}
+        transition={{ type: "spring", stiffness: 420, damping: 22 }}
+        className="fixed bottom-[76px] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-fg shadow-primary md:bottom-7 md:right-7"
       >
         <Plus className="h-6 w-6" />
-      </button>
+      </motion.button>
 
       {openState && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
