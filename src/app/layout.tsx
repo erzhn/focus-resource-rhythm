@@ -20,16 +20,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="ru" className={`${manrope.variable} h-full antialiased`}>
-      <head>
-        {/* Применяем сохранённую тему до рендера, чтобы не было мигания. */}
+    // suppressHydrationWarning: скрипт ниже ставит data-theme на <html> до гидратации,
+    // поэтому клиентский атрибут намеренно не совпадает с серверным — это ожидаемо.
+    <html lang="ru" className={`${manrope.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full">
+        {/* Применяем сохранённую тему до рендера контента, чтобы не было мигания. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('frr-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
           }}
         />
-      </head>
-      <body className="min-h-full">
         <DemoStoreProvider>{children}</DemoStoreProvider>
       </body>
     </html>
