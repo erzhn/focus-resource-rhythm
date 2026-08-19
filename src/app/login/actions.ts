@@ -12,6 +12,8 @@ const credentials = z.object({
 
 export interface AuthState {
   error?: string;
+  /** Сообщение об успехе (например, «проверьте почту»). */
+  info?: string;
 }
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -37,9 +39,14 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp(parsed.data);
+  const { data, error } = await supabase.auth.signUp(parsed.data);
   if (error) return { error: error.message };
-  redirect("/");
+  // Если подтверждение email включено, сессии ещё нет — не редиректим молча,
+  // а просим проверить почту (иначе middleware вернёт на /login без объяснения).
+  if (data.session) redirect("/");
+  return {
+    info: "Аккаунт создан. Проверьте почту и перейдите по ссылке для подтверждения — затем войдите.",
+  };
 }
 
 export async function signOut() {

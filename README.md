@@ -277,6 +277,7 @@ npm test
 | [docs/CALENDAR_SYNC.md](docs/CALENDAR_SYNC.md) | Синхронизация и конфликты |
 | [docs/TESTING.md](docs/TESTING.md) | Стратегия тестирования |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Развёртывание |
+| [docs/DEPLOY_ENV.md](docs/DEPLOY_ENV.md) | Переменные окружения для деплоя (Vercel) |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Принятые решения |
 
 ---

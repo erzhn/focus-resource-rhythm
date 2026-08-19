@@ -11,11 +11,13 @@ export default function LoginPage() {
   const [signInState, signInAction, signingIn] = useActionState<AuthState, FormData>(signIn, {});
   const [signUpState, signUpAction, signingUp] = useActionState<AuthState, FormData>(signUp, {});
   const error = signInState.error || signUpState.error;
+  const info = signUpState.info;
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h1 className="text-lg font-bold">{APP.name}</h1>
+      <div className="w-full max-w-sm rounded-[var(--r-lg)] border border-border bg-surface p-6 shadow-soft-lg">
+        <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-primary">Вход</div>
+        <h1 className="text-xl font-extrabold tracking-tight">{APP.name}</h1>
         <p className="mt-1 text-sm text-muted">{APP.tagline}</p>
 
         {isDemoMode && (
@@ -57,6 +59,11 @@ export default function LoginPage() {
           </div>
 
           {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+          {info && (
+            <p className="rounded-[var(--r-sm)] border border-[var(--resource)]/40 bg-[var(--resource)]/10 px-3 py-2 text-xs text-[var(--resource)]">
+              {info}
+            </p>
+          )}
 
           <div className="flex gap-2 pt-1">
             <Button type="submit" formAction={signInAction} disabled={signingIn} className="flex-1">
