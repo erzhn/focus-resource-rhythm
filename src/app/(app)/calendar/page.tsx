@@ -15,12 +15,12 @@ import {
 import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { WeekView } from "@/components/calendar/week-view";
+import { DayTimeline } from "@/components/calendar/day-timeline";
 import { EventModal, type EditingEvent } from "@/components/calendar/event-modal";
 import { findConflicts, type TimeBlock } from "@/domain/schedule/conflicts";
 import { Button, Card, CardTitle } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/ui/page-header";
 import { Reveal } from "@/components/ui/reveal";
-import { useToast } from "@/components/ui/toast";
 import { formatDate, formatMinutes, formatTime } from "@/lib/format";
 
 type Mode = "day" | "week" | "month" | "year";
@@ -98,13 +98,11 @@ export default function CalendarPage() {
 }
 
 function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: import("@/lib/demo/types").DemoEvent) => void }) {
-  const { state, deleteEvent, now } = useStore();
-  const toast = useToast();
+  const { state, now } = useStore();
   const events = state.events.filter((e) => isSameDay(e.start, cursor)).sort((a, b) => a.start.getTime() - b.start.getTime());
   const tasks = state.tasks.filter((t) => t.dueDate && isSameDay(t.dueDate, cursor));
   const timeblocks = tasks.filter((t) => t.scheduledStart && t.scheduledEnd);
   const planned = tasks.reduce((s, t) => s + t.plannedMinutes, 0);
-  const isToday = isSameDay(cursor, now);
 
   // Конфликты: фиксированные события + временные блоки задач.
   const blocks: TimeBlock[] = [
@@ -112,14 +110,6 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
     ...timeblocks.map((t) => ({ id: t.id, title: t.title, start: t.scheduledStart!, end: t.scheduledEnd!, fixed: false })),
   ];
   const conflicts = findConflicts(blocks);
-
-  const handleDelete = (id: string, title: string) => {
-    deleteEvent(id);
-    toast.info(`Событие «${title}» удалено`);
-  };
-
-  // Позиция линии «сейчас»: индекс первого события, которое ещё не началось.
-  const nowIndex = isToday ? events.findIndex((e) => e.start.getTime() > now.getTime()) : -1;
 
   return (
     <div className="space-y-3">
@@ -136,35 +126,14 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
         </Card>
       )}
 
-      <Card>
-        <CardTitle>События</CardTitle>
-        {events.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Событий нет.</p>
-        ) : (
-          <ul className="mt-3 space-y-1.5 text-sm">
-            {events.map((e, i) => {
-              const past = isToday && e.end.getTime() < now.getTime();
-              return (
-                <div key={e.id}>
-                  {i === nowIndex && <NowLine label={formatTime(now)} />}
-                  <li className={`flex items-center justify-between rounded-[var(--r-sm)] px-2 py-1.5 transition-colors hover:bg-surface-2 ${past ? "opacity-55" : ""}`}>
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: e.fixed ? "var(--primary)" : "var(--zone-next)" }} />
-                      {e.title} {e.fixed ? "" : <span className="text-[11px] text-muted-2">(гибкое)</span>}
-                    </span>
-                    <span className="flex items-center gap-2 text-muted">
-                      {formatTime(e.start)}–{formatTime(e.end)}
-                      <button onClick={() => onEditEvent(e)} className="rounded px-1 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]">изменить</button>
-                      <button onClick={() => handleDelete(e.id, e.title)} className="rounded px-1 text-[var(--danger)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]">удалить</button>
-                    </span>
-                  </li>
-                </div>
-              );
-            })}
-            {nowIndex === -1 && isToday && events.length > 0 && <NowLine label={`${formatTime(now)} · впереди событий нет`} />}
-          </ul>
-        )}
-      </Card>
+      {events.length === 0 ? (
+        <Card>
+          <CardTitle>События</CardTitle>
+          <p className="mt-2 text-sm text-muted">Событий нет — добавьте, чтобы увидеть их на таймлайне дня.</p>
+        </Card>
+      ) : (
+        <DayTimeline cursor={cursor} now={now} onEditEvent={onEditEvent} />
+      )}
 
       {timeblocks.length > 0 && (
         <Card>
@@ -198,17 +167,6 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
           </ul>
         )}
       </Card>
-    </div>
-  );
-}
-
-/** Линия текущего момента в списке событий дня. */
-function NowLine({ label }: { label: string }) {
-  return (
-    <div className="my-1.5 flex items-center gap-2" aria-hidden>
-      <span className="h-2 w-2 rounded-full bg-[var(--attention)]" />
-      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--attention)]">сейчас {label}</span>
-      <span className="h-px flex-1 bg-[var(--attention)]/40" />
     </div>
   );
 }
