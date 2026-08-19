@@ -2,50 +2,66 @@
 
 import { useState } from "react";
 import { addDays, format } from "date-fns";
-import { CheckCircle2, MoonStar, CalendarRange } from "lucide-react";
+import { motion } from "motion/react";
+import { MoonStar, CalendarRange } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { Button, Card, CardTitle } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal } from "@/components/ui/reveal";
+import { useToast } from "@/components/ui/toast";
 import { TASK_STATUS_LABELS } from "@/domain/types";
 import type { ResultDecision } from "@/lib/demo/types";
 import { FOCUS_ZONE_LABELS } from "@/domain/focus";
 
 type Tab = "evening" | "weekly";
 
+const TABS: { key: Tab; label: string; icon: typeof MoonStar }[] = [
+  { key: "evening", label: "Вечерний итог", icon: MoonStar },
+  { key: "weekly", label: "Еженедельная сверка", icon: CalendarRange },
+];
+
 export default function ReviewsPage() {
   const [tab, setTab] = useState<Tab>("evening");
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Сверки</h1>
-        <p className="mt-1 text-sm text-muted">Вечерний итог дня и еженедельный обзор.</p>
-      </header>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTab("evening")}
-          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-            tab === "evening" ? "bg-primary text-primary-fg" : "border border-border"
-          }`}
-        >
-          <MoonStar className="h-4 w-4" /> Вечерний итог
-        </button>
-        <button
-          onClick={() => setTab("weekly")}
-          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-            tab === "weekly" ? "bg-primary text-primary-fg" : "border border-border"
-          }`}
-        >
-          <CalendarRange className="h-4 w-4" /> Еженедельная сверка
-        </button>
+    <div>
+      <PageHeader
+        eyebrow="Ритм"
+        title="Сверки"
+        subtitle="Вечерний итог дня и еженедельный обзор."
+      />
+      <div className="mb-5 flex gap-1 rounded-[var(--r)] bg-surface-2 p-1" role="tablist" aria-label="Тип сверки">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`relative flex flex-1 items-center justify-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] ${
+              tab === key ? "text-primary-fg" : "text-muted hover:text-foreground"
+            }`}
+          >
+            {tab === key && (
+              <motion.span
+                layoutId="review-tab"
+                className="absolute inset-0 rounded-[var(--r-sm)] bg-primary shadow-primary"
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <Icon className="h-4 w-4" /> {label}
+            </span>
+          </button>
+        ))}
       </div>
-      {tab === "evening" ? <EveningReview /> : <WeeklyReview />}
+      <Reveal key={tab}>{tab === "evening" ? <EveningReview /> : <WeeklyReview />}</Reveal>
     </div>
   );
 }
 
 function EveningReview() {
   const { state, setTaskStatus, setEveningEnergy, saveEveningReview } = useStore();
+  const toast = useToast();
   const [note, setNote] = useState("");
-  const [saved, setSaved] = useState(false);
 
   const todays = state.tasks.filter(
     (t) => t.status !== "cancelled" && t.status !== "postponed",
@@ -125,16 +141,11 @@ function EveningReview() {
           <Button
             onClick={() => {
               saveEveningReview(note);
-              setSaved(true);
+              toast.success("Итог дня сохранён");
             }}
           >
             Сохранить итог
           </Button>
-          {saved && (
-            <span className="flex items-center gap-1 text-sm text-success">
-              <CheckCircle2 className="h-4 w-4" /> Итог сохранён
-            </span>
-          )}
         </div>
       </Card>
     </div>
@@ -217,8 +228,8 @@ function UnfinishedActions({ taskId }: { taskId: string }) {
 
 function WeeklyReview() {
   const { state, focusResults, decideResult, setNextWeekResults } = useStore();
+  const toast = useToast();
   const [drafts, setDrafts] = useState<string[]>(["", "", ""]);
-  const [savedResults, setSavedResults] = useState(false);
 
   const done = state.tasks.filter((t) => t.status === "done").length;
   const partial = state.tasks.filter((t) => t.status === "partial").length;
@@ -281,16 +292,11 @@ function WeeklyReview() {
           <Button
             onClick={() => {
               setNextWeekResults(drafts.filter((d) => d.trim()));
-              setSavedResults(true);
+              toast.success("Еженедельная сверка сохранена");
             }}
           >
             Сохранить сверку
           </Button>
-          {savedResults && (
-            <span className="flex items-center gap-1 text-sm text-success">
-              <CheckCircle2 className="h-4 w-4" /> Сохранено
-            </span>
-          )}
         </div>
       </Card>
     </div>
@@ -308,9 +314,9 @@ function ResultDecisionRow({
   zone: string;
   onDecide: (id: string, d: ResultDecision, reason: string) => void;
 }) {
+  const toast = useToast();
   const [decision, setDecision] = useState<ResultDecision | null>(null);
   const [reason, setReason] = useState("");
-  const [saved, setSaved] = useState(false);
   const options: { key: ResultDecision; label: string }[] = [
     { key: "continue", label: "Продолжить" },
     { key: "change", label: "Изменить" },
@@ -343,12 +349,11 @@ function ResultDecisionRow({
             size="sm"
             onClick={() => {
               onDecide(resultId, decision, reason);
-              setSaved(true);
+              toast.success("Решение применено");
             }}
           >
             Применить
           </Button>
-          {saved && <CheckCircle2 className="h-4 w-4 text-success" />}
         </div>
       )}
     </div>

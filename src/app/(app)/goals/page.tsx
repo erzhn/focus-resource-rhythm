@@ -1,67 +1,109 @@
 "use client";
 
+import { Target, CornerDownRight, CheckCircle2, CircleDashed } from "lucide-react";
 import { FOCUS_ZONE_LABELS } from "@/domain/focus";
 import { useStore } from "@/lib/demo/store";
-import { Card, CardTitle } from "@/components/ui/primitives";
+import { buildGoalTree, type GoalTreeResult } from "@/lib/ui/goal-tree";
+import { plural } from "@/lib/ui/text";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { Reveal, RevealList, RevealItem } from "@/components/ui/reveal";
+import { Card, CardTitle, EmptyState, Badge } from "@/components/ui/primitives";
 
 export default function GoalsPage() {
   const { state } = useStore();
+  const tree = buildGoalTree(state.lifeAreas, state.results, state.tasks);
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Цели и проекты</h1>
-        <p className="mt-1 text-sm text-muted">
-          Цепочка: Сфера жизни → Цель / Проект → Задача → Ближайшее действие.
-        </p>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Направление"
+        title="Цели и проекты"
+        subtitle="Сфера жизни → Цель / Проект → Задача → Ближайшее действие."
+      />
 
-      {state.lifeAreas.map((area) => {
-        const results = state.results.filter((r) => r.lifeAreaId === area.id);
-        if (results.length === 0) return null;
-        return (
-          <Card key={area.id}>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: area.color }} />
-              <CardTitle>{area.name}</CardTitle>
-            </div>
-            <div className="mt-3 space-y-3">
-              {results.map((r) => {
-                const tasks = state.tasks.filter((t) => t.resultId === r.id);
-                const nextAction = tasks.find((t) => t.status !== "done" && t.status !== "cancelled");
-                return (
-                  <div key={r.id} className="rounded-xl border border-border p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{r.title}</p>
-                      <span className="text-[11px] text-muted">
-                        {r.kind === "goal" ? "Цель" : "Проект"} · {FOCUS_ZONE_LABELS[r.zone]}
-                        {r.horizonDays ? ` · ${r.horizonDays} дн.` : ""}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${r.progress * 100}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-muted">
-                      Ближайшее действие:{" "}
-                      {nextAction ? (
-                        <span className="text-foreground">{nextAction.title}</span>
-                      ) : (
-                        <span className="text-[var(--warning)]">не задано</span>
-                      )}
+      {tree.length === 0 ? (
+        <Reveal>
+          <EmptyState
+            icon={<Target className="h-6 w-6" />}
+            title="Пока нет целей и проектов"
+            hint="Свяжите результаты со сферами жизни — здесь появится дерево с прогрессом."
+          />
+        </Reveal>
+      ) : (
+        <RevealList className="space-y-4">
+          {tree.map((area) => (
+            <RevealItem key={area.id}>
+              <Card>
+                <div className="flex items-center gap-3">
+                  <ProgressRing value={area.avgProgress} size={44} stroke={5} color={area.color}>
+                    <span className="text-[11px] font-bold">{Math.round(area.avgProgress * 100)}</span>
+                  </ProgressRing>
+                  <div className="min-w-0">
+                    <CardTitle>{area.name}</CardTitle>
+                    <p className="text-xs text-muted-2">
+                      {area.results.length} {plural(area.results.length, "результат", "результата", "результатов")}
                     </p>
-                    {tasks.length > 0 && (
-                      <p className="mt-1 text-[11px] text-muted">Задач привязано: {tasks.length}</p>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          </Card>
-        );
-      })}
+                </div>
+
+                <div className="mt-4 space-y-2.5">
+                  {area.results.map((r) => (
+                    <ResultRow key={r.id} r={r} accent={area.color} />
+                  ))}
+                </div>
+              </Card>
+            </RevealItem>
+          ))}
+        </RevealList>
+      )}
+    </div>
+  );
+}
+
+function ResultRow({ r, accent }: { r: GoalTreeResult; accent: string }) {
+  return (
+    <div className="rounded-[var(--r)] bg-surface-2 p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{r.title}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge color={accent}>{r.kind === "goal" ? "Цель" : "Проект"}</Badge>
+            <span className="text-[11px] text-muted-2">
+              {FOCUS_ZONE_LABELS[r.zone as never] ?? r.zone}
+              {r.horizonDays ? ` · ${r.horizonDays} дн.` : ""}
+            </span>
+          </div>
+        </div>
+        <span className="shrink-0 text-xs font-bold text-muted">{Math.round(r.progress * 100)}%</span>
+      </div>
+
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
+        <div
+          className="h-full rounded-full transition-[width] duration-500"
+          style={{ width: `${r.progress * 100}%`, backgroundColor: accent }}
+        />
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-1.5 text-xs">
+        <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-2" />
+        {r.nextActionTitle ? (
+          <span className="truncate text-foreground">{r.nextActionTitle}</span>
+        ) : (
+          <span className="text-[var(--attention)]">ближайшее действие не задано</span>
+        )}
+      </div>
+
+      {r.taskCount > 0 && (
+        <p className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-2">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-[var(--resource)]" /> {r.doneCount}
+          </span>
+          <span className="flex items-center gap-1">
+            <CircleDashed className="h-3 w-3" /> {r.taskCount - r.doneCount} в работе
+          </span>
+        </p>
+      )}
     </div>
   );
 }

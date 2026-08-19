@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { format, setHours, setMinutes } from "date-fns";
+import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { Button, Card } from "@/components/ui/primitives";
+import { useToast } from "@/components/ui/toast";
+import { useFocusTrap } from "@/lib/ui/use-focus-trap";
 import type { DemoEvent } from "@/lib/demo/types";
 
 export type EditingEvent =
@@ -22,6 +25,8 @@ function combine(dateStr: string, timeStr: string): Date {
 
 export function EventModal({ editing, onClose }: { editing: NonNullable<EditingEvent>; onClose: () => void }) {
   const { addEvent, updateEvent } = useStore();
+  const toast = useToast();
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const existing = editing.mode === "edit" ? editing.event : null;
   const baseDate = editing.mode === "new" ? editing.date : editing.event.start;
 
@@ -43,12 +48,27 @@ export function EventModal({ editing, onClose }: { editing: NonNullable<EditingE
     };
     if (existing) updateEvent(existing.id, payload);
     else addEvent(payload);
+    toast.success(existing ? "Событие обновлено" : "Событие создано");
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
-      <Card className="w-full max-w-md rounded-b-none md:rounded-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={existing ? "Редактирование события" : "Новое событие"}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className="w-full max-w-md"
+      >
+      <Card className="w-full rounded-b-none md:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             {existing ? "Редактирование события" : "Новое событие"}
@@ -98,6 +118,7 @@ export function EventModal({ editing, onClose }: { editing: NonNullable<EditingE
           </div>
         </div>
       </Card>
+      </motion.div>
     </div>
   );
 }

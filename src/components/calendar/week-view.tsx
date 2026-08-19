@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
-import { addDays, isSameDay, startOfWeek } from "date-fns";
+import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
+import { useToast } from "@/components/ui/toast";
 import { plannableMinutes } from "@/domain/resources";
 import { findConflicts, type TimeBlock } from "@/domain/schedule/conflicts";
 import { formatMinutes, formatTime } from "@/lib/format";
@@ -74,13 +78,12 @@ function DayColumn({
 }
 
 function DraggableTask({ task, onMove }: { task: DemoTask; onMove: (id: string, d: number) => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   return (
     <div
       ref={setNodeRef}
-      style={transform ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : undefined}
-      className={`rounded-lg border border-border bg-surface-2 px-2 py-1 text-[11px] ${
-        isDragging ? "opacity-50" : ""
+      className={`rounded-lg border border-border bg-surface-2 px-2 py-1 text-[11px] transition-opacity ${
+        isDragging ? "opacity-30" : ""
       }`}
     >
       <div className="flex items-center gap-1">
@@ -110,6 +113,8 @@ function DraggableTask({ task, onMove }: { task: DemoTask; onMove: (id: string, 
 
 export function WeekView({ cursor }: { cursor: Date }) {
   const { state, updateTask, resources } = useStore();
+  const toast = useToast();
+  const [activeTask, setActiveTask] = useState<DemoTask | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const weekStart = startOfWeek(cursor, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -121,20 +126,31 @@ export function WeekView({ cursor }: { cursor: Date }) {
       .filter((e) => isSameDay(e.start, day))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
+  const handleDragStart = (e: DragStartEvent) => {
+    setActiveTask(state.tasks.find((t) => t.id === e.active.id) ?? null);
+  };
+
   const handleDragEnd = (e: DragEndEvent) => {
+    const dragged = activeTask;
+    setActiveTask(null);
     if (!e.over) return;
     const targetDay = new Date(e.over.id as string);
+    const task = state.tasks.find((t) => t.id === e.active.id);
+    if (task?.dueDate && isSameDay(task.dueDate, targetDay)) return;
     updateTask(e.active.id as string, { dueDate: targetDay });
+    if (dragged) toast.success(`«${dragged.title}» → ${format(targetDay, "d MMM")}`);
   };
 
   const moveByDays = (taskId: string, delta: number) => {
     const task = state.tasks.find((t) => t.id === taskId);
     const base = task?.dueDate ?? cursor;
-    updateTask(taskId, { dueDate: addDays(base, delta) });
+    const target = addDays(base, delta);
+    updateTask(taskId, { dueDate: target });
+    if (task) toast.success(`«${task.title}» → ${format(target, "d MMM")}`);
   };
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {days.map((day) => {
           const dayTasks = tasksOn(day);
@@ -160,6 +176,14 @@ export function WeekView({ cursor }: { cursor: Date }) {
           );
         })}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {activeTask ? (
+          <div className="rotate-2 cursor-grabbing rounded-lg border border-primary bg-surface px-2 py-1 text-[11px] shadow-soft-lg">
+            <span className="font-medium">{activeTask.title}</span>
+            <span className="ml-1 text-muted">{formatMinutes(activeTask.plannedMinutes)}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
       <p className="mt-3 text-[11px] text-muted">
         Перетащите задачу между днями или используйте стрелки ← → (доступно с клавиатуры и на телефоне).
         После переноса нагрузка пересчитывается; перегрузка и конфликты помечаются значком.

@@ -8,9 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { format } from "date-fns";
+import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { Button, Card } from "@/components/ui/primitives";
+import { useToast } from "@/components/ui/toast";
+import { useFocusTrap } from "@/lib/ui/use-focus-trap";
 import { TASK_STATUS_LABELS, type Scale1to5, type SchedulingMode, type TaskStatus } from "@/domain/types";
 import type { RecurrenceRule, RecurrenceFrequency } from "@/domain/recurrence";
 
@@ -38,16 +41,32 @@ export function TaskEditProvider({ children }: { children: ReactNode }) {
   const task = state.tasks.find((t) => t.id === taskId) ?? null;
 
   const ctxValue = useMemo<TaskEditContextValue>(() => ({ open: setTaskId }), []);
+  const close = () => setTaskId(null);
+  const trapRef = useFocusTrap<HTMLDivElement>(task !== null, close);
 
   return (
     <Ctx.Provider value={ctxValue}>
       {children}
       {task && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
-          <Card className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-b-none md:rounded-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4"
+          onClick={close}
+        >
+          <motion.div
+            ref={trapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Редактирование задачи"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 360, damping: 32 }}
+            className="w-full max-w-lg"
+          >
+          <Card className="max-h-[92vh] w-full overflow-y-auto rounded-b-none md:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold">Редактирование задачи</h2>
-              <button onClick={() => setTaskId(null)} aria-label="Закрыть" className="rounded-lg p-1 hover:bg-surface-2">
+              <button onClick={close} aria-label="Закрыть" className="rounded-lg p-1 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)]">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -55,10 +74,11 @@ export function TaskEditProvider({ children }: { children: ReactNode }) {
             <EditForm
               key={task.id}
               taskId={task.id}
-              onClose={() => setTaskId(null)}
+              onClose={close}
               store={{ state, updateTask, setTaskStatus, addDependency, removeDependency }}
             />
           </Card>
+          </motion.div>
         </div>
       )}
     </Ctx.Provider>
@@ -80,6 +100,7 @@ function EditForm({
   store: StoreSlice;
 }) {
   const { state, updateTask, setTaskStatus, addDependency, removeDependency } = store;
+  const toast = useToast();
   const task = state.tasks.find((t) => t.id === taskId)!;
 
   const [title, setTitle] = useState(task.title);
@@ -127,6 +148,7 @@ function EditForm({
       scheduledEnd: schedulingMode === "timeblock" && scheduledEnd ? new Date(scheduledEnd) : null,
     });
     if (status !== task.status) setTaskStatus(taskId, status);
+    toast.success("Задача обновлена");
     onClose();
   };
 

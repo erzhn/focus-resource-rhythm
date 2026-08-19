@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cycleIndex, greeting, matchesQuery } from "./text";
+import { cycleIndex, greeting, matchesQuery, plural } from "./text";
 
 describe("greeting", () => {
   const at = (h: number) => new Date(2026, 0, 1, h, 0, 0);
@@ -29,5 +29,17 @@ describe("cycleIndex", () => {
   });
   it("пустой список даёт 0", () => {
     expect(cycleIndex(0, 1, 0)).toBe(0);
+  });
+});
+
+describe("plural", () => {
+  const f = (n: number) => plural(n, "результат", "результата", "результатов");
+  it("склоняет по русским правилам", () => {
+    expect(f(1)).toBe("результат");
+    expect(f(2)).toBe("результата");
+    expect(f(5)).toBe("результатов");
+    expect(f(11)).toBe("результатов"); // исключение 11–14
+    expect(f(21)).toBe("результат");
+    expect(f(22)).toBe("результата");
   });
 });

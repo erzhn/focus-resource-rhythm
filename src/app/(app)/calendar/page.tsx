@@ -12,12 +12,15 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { WeekView } from "@/components/calendar/week-view";
 import { EventModal, type EditingEvent } from "@/components/calendar/event-modal";
 import { findConflicts, type TimeBlock } from "@/domain/schedule/conflicts";
 import { Button, Card, CardTitle } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal } from "@/components/ui/reveal";
+import { useToast } from "@/components/ui/toast";
 import { formatDate, formatMinutes, formatTime } from "@/lib/format";
 
 type Mode = "day" | "week" | "month" | "year";
@@ -42,30 +45,33 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Календарь</h1>
-          <p className="text-sm text-muted">{formatDate(cursor)}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-xl border border-border p-1">
-            {MODES.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setMode(m.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs ${
-                  mode === m.key ? "bg-primary text-primary-fg" : "hover:bg-surface-2"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <Button size="sm" onClick={() => setEditingEvent({ mode: "new", date: cursor })}>
-            <Plus className="h-4 w-4" /> Событие
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Расписание"
+        title="Календарь"
+        subtitle={formatDate(cursor)}
+        actions={
+          <>
+            <div className="flex items-center gap-1 rounded-[var(--r)] bg-surface-2 p-1" role="tablist" aria-label="Масштаб">
+              {MODES.map((m) => (
+                <button
+                  key={m.key}
+                  role="tab"
+                  aria-selected={mode === m.key}
+                  onClick={() => setMode(m.key)}
+                  className={`rounded-[var(--r-sm)] px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] ${
+                    mode === m.key ? "bg-primary text-primary-fg shadow-primary" : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" onClick={() => setEditingEvent({ mode: "new", date: cursor })}>
+              <Plus className="h-4 w-4" /> Событие
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex items-center gap-2">
         <button onClick={() => shift(-1)} aria-label="Назад" className="rounded-lg border border-border p-1.5 hover:bg-surface-2">
@@ -79,10 +85,12 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {mode === "day" && <DayView cursor={cursor} onEditEvent={(e) => setEditingEvent({ mode: "edit", event: e })} />}
-      {mode === "week" && <WeekView cursor={cursor} />}
-      {mode === "month" && <MonthView cursor={cursor} onPickDay={(d) => { setCursor(d); setMode("day"); }} />}
-      {mode === "year" && <YearView cursor={cursor} onPickMonth={(d) => { setCursor(d); setMode("month"); }} />}
+      <Reveal key={mode}>
+        {mode === "day" && <DayView cursor={cursor} onEditEvent={(e) => setEditingEvent({ mode: "edit", event: e })} />}
+        {mode === "week" && <WeekView cursor={cursor} />}
+        {mode === "month" && <MonthView cursor={cursor} onPickDay={(d) => { setCursor(d); setMode("day"); }} />}
+        {mode === "year" && <YearView cursor={cursor} onPickMonth={(d) => { setCursor(d); setMode("month"); }} />}
+      </Reveal>
 
       {editingEvent && <EventModal editing={editingEvent} onClose={() => setEditingEvent(null)} />}
     </div>
@@ -90,11 +98,13 @@ export default function CalendarPage() {
 }
 
 function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: import("@/lib/demo/types").DemoEvent) => void }) {
-  const { state, deleteEvent } = useStore();
+  const { state, deleteEvent, now } = useStore();
+  const toast = useToast();
   const events = state.events.filter((e) => isSameDay(e.start, cursor)).sort((a, b) => a.start.getTime() - b.start.getTime());
   const tasks = state.tasks.filter((t) => t.dueDate && isSameDay(t.dueDate, cursor));
   const timeblocks = tasks.filter((t) => t.scheduledStart && t.scheduledEnd);
   const planned = tasks.reduce((s, t) => s + t.plannedMinutes, 0);
+  const isToday = isSameDay(cursor, now);
 
   // Конфликты: фиксированные события + временные блоки задач.
   const blocks: TimeBlock[] = [
@@ -103,11 +113,21 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
   ];
   const conflicts = findConflicts(blocks);
 
+  const handleDelete = (id: string, title: string) => {
+    deleteEvent(id);
+    toast.info(`Событие «${title}» удалено`);
+  };
+
+  // Позиция линии «сейчас»: индекс первого события, которое ещё не началось.
+  const nowIndex = isToday ? events.findIndex((e) => e.start.getTime() > now.getTime()) : -1;
+
   return (
     <div className="space-y-3">
       {conflicts.length > 0 && (
-        <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
-          <CardTitle className="text-[var(--warning)]">Конфликты расписания</CardTitle>
+        <Card className="border-[var(--attention)]/40 bg-[var(--attention)]/10">
+          <CardTitle className="flex items-center gap-1.5 text-[var(--attention)]">
+            <TriangleAlert className="h-3.5 w-3.5" /> Конфликты расписания
+          </CardTitle>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
             {conflicts.map((c, i) => (
               <li key={i}>«{c.a.title}» и «{c.b.title}» пересекаются на {c.overlapMinutes} мин.</li>
@@ -121,17 +141,27 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
         {events.length === 0 ? (
           <p className="mt-2 text-sm text-muted">Событий нет.</p>
         ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {events.map((e) => (
-              <li key={e.id} className="flex items-center justify-between">
-                <span>{e.title} {e.fixed ? "" : "(гибкое)"}</span>
-                <span className="flex items-center gap-2 text-muted">
-                  {formatTime(e.start)}–{formatTime(e.end)}
-                  <button onClick={() => onEditEvent(e)} className="text-primary">изменить</button>
-                  <button onClick={() => deleteEvent(e.id)} className="text-[var(--danger)]">удалить</button>
-                </span>
-              </li>
-            ))}
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {events.map((e, i) => {
+              const past = isToday && e.end.getTime() < now.getTime();
+              return (
+                <div key={e.id}>
+                  {i === nowIndex && <NowLine label={formatTime(now)} />}
+                  <li className={`flex items-center justify-between rounded-[var(--r-sm)] px-2 py-1.5 transition-colors hover:bg-surface-2 ${past ? "opacity-55" : ""}`}>
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: e.fixed ? "var(--primary)" : "var(--zone-next)" }} />
+                      {e.title} {e.fixed ? "" : <span className="text-[11px] text-muted-2">(гибкое)</span>}
+                    </span>
+                    <span className="flex items-center gap-2 text-muted">
+                      {formatTime(e.start)}–{formatTime(e.end)}
+                      <button onClick={() => onEditEvent(e)} className="rounded px-1 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]">изменить</button>
+                      <button onClick={() => handleDelete(e.id, e.title)} className="rounded px-1 text-[var(--danger)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]">удалить</button>
+                    </span>
+                  </li>
+                </div>
+              );
+            })}
+            {nowIndex === -1 && isToday && events.length > 0 && <NowLine label={`${formatTime(now)} · впереди событий нет`} />}
           </ul>
         )}
       </Card>
@@ -168,6 +198,17 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+/** Линия текущего момента в списке событий дня. */
+function NowLine({ label }: { label: string }) {
+  return (
+    <div className="my-1.5 flex items-center gap-2" aria-hidden>
+      <span className="h-2 w-2 rounded-full bg-[var(--attention)]" />
+      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--attention)]">сейчас {label}</span>
+      <span className="h-px flex-1 bg-[var(--attention)]/40" />
     </div>
   );
 }

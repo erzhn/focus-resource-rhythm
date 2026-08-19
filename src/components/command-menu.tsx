@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   CalendarDays, CheckCircle2, CornerDownLeft, Home, ListChecks, MoonStar,
-  Pencil, Plus, Search, Sparkles,
+  Pencil, Plus, Search, Sparkles, Sunrise,
 } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { useQuickAdd } from "@/components/quick-add";
 import { useTaskEdit } from "@/components/task-edit";
 import { cycleIndex, matchesQuery } from "@/lib/ui/text";
+import { TASK_STATUS_LABELS } from "@/domain/types";
 import type { LucideIcon } from "lucide-react";
 
 interface Cmd {
@@ -74,6 +75,7 @@ export function CommandMenu() {
     () => [
       { id: "add", label: "Создать задачу", hint: "Быстрое добавление", icon: Plus, keywords: "новая task", run: () => { close(); openQuickAdd(); } },
       { id: "today", label: "Перейти к «Сегодня»", icon: Home, keywords: "главная день", run: () => go("/") },
+      { id: "morning", label: "Начать утренний план", icon: Sunrise, keywords: "утро планирование день подтвердить", run: () => go("/") },
       { id: "plans", label: "Все планы и идеи", icon: ListChecks, keywords: "задачи входящие зоны", run: () => go("/plans") },
       { id: "calendar", label: "Открыть календарь", icon: CalendarDays, keywords: "день неделя месяц", run: () => go("/calendar") },
       { id: "assistant", label: "Спросить ассистента", icon: Sparkles, keywords: "ai чат", run: () => go("/assistant") },
@@ -91,7 +93,7 @@ export function CommandMenu() {
       .map((t) => ({
         id: `task-${t.id}`,
         label: t.title,
-        hint: "Открыть задачу",
+        hint: TASK_STATUS_LABELS[t.status],
         icon: Pencil,
         run: () => { close(); openEdit(t.id); },
       }));

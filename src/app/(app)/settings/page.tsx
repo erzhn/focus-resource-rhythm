@@ -3,6 +3,8 @@
 import { APP, REGIONAL_DEFAULTS } from "@/config/app";
 import { isDemoMode } from "@/lib/env";
 import { Card, CardTitle } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { RevealList, RevealItem } from "@/components/ui/reveal";
 import { useStore } from "@/lib/demo/store";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -18,22 +20,27 @@ export default function SettingsPage() {
   const { state, setAvailableMinutes } = useStore();
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Настройки и интеграции</h1>
-        <p className="mt-1 text-sm text-muted">Региональные настройки, лимиты, календари.</p>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Конфигурация"
+        title="Настройки и интеграции"
+        subtitle="Региональные настройки, лимиты, календари."
+      />
 
+      <RevealList className="space-y-6">
       {isDemoMode && (
-        <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
-          <p className="text-sm text-[var(--warning)]">
-            Демо-режим. Данные хранятся в памяти и сбрасываются при перезагрузке. Чтобы включить
-            реальное хранение (PostgreSQL + RLS), задайте переменные Supabase в{" "}
-            <code>.env.local</code> — см. README.
-          </p>
-        </Card>
+        <RevealItem>
+          <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
+            <p className="text-sm text-[var(--warning)]">
+              Демо-режим. Данные хранятся в памяти и сбрасываются при перезагрузке. Чтобы включить
+              реальное хранение (PostgreSQL + RLS), задайте переменные Supabase в{" "}
+              <code>.env.local</code> — см. README.
+            </p>
+          </Card>
+        </RevealItem>
       )}
 
+      <RevealItem>
       <Card>
         <CardTitle>Региональные настройки</CardTitle>
         <div className="mt-2">
@@ -45,7 +52,9 @@ export default function SettingsPage() {
           <Row label="Начало недели" value="Понедельник" />
         </div>
       </Card>
+      </RevealItem>
 
+      <RevealItem>
       <Card>
         <CardTitle>Лимиты и резерв</CardTitle>
         <div className="mt-2">
@@ -66,7 +75,9 @@ export default function SettingsPage() {
           />
         </label>
       </Card>
+      </RevealItem>
 
+      <RevealItem>
       <Card>
         <CardTitle>Интеграции календарей</CardTitle>
         <p className="mt-2 text-sm text-muted">
@@ -92,6 +103,8 @@ export default function SettingsPage() {
           </a>
         </div>
       </Card>
+      </RevealItem>
+      </RevealList>
     </div>
   );
 }

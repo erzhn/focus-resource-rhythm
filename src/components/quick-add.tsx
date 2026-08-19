@@ -13,6 +13,8 @@ import { useStore } from "@/lib/demo/store";
 import { formulationService, type FormulationSuggestion } from "@/domain/formulation";
 import type { Scale1to5, SchedulingMode } from "@/domain/types";
 import { Button, Card } from "@/components/ui/primitives";
+import { useToast } from "@/components/ui/toast";
+import { useFocusTrap } from "@/lib/ui/use-focus-trap";
 
 interface QuickAddContextValue {
   open: () => void;
@@ -67,6 +69,7 @@ function ScaleField({
 
 export function QuickAddProvider({ children }: { children: ReactNode }) {
   const { addTask, updateTask, state } = useStore();
+  const toast = useToast();
   const [openState, setOpenState] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -110,6 +113,8 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
     reset();
   };
 
+  const trapRef = useFocusTrap<HTMLDivElement>(openState, close);
+
   const ctxValue = useMemo<QuickAddContextValue>(
     () => ({
       open: () => {
@@ -140,6 +145,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       status: "planned",
     });
     setCreatedId(id);
+    toast.success("Задача добавлена во «Входящие»");
     setStep("ask"); // Обязательный вопрос про формулировку.
   };
 
@@ -173,8 +179,22 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       </motion.button>
 
       {openState && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
-          <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-b-none md:rounded-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4"
+          onClick={close}
+        >
+          <motion.div
+            ref={trapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Новая задача"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 360, damping: 32 }}
+            className="w-full max-w-lg"
+          >
+          <Card className="max-h-[90vh] w-full overflow-y-auto rounded-b-none md:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold">
                 {step === "form" && "Новая задача"}
@@ -387,6 +407,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
               </div>
             )}
           </Card>
+          </motion.div>
         </div>
       )}
     </Ctx.Provider>

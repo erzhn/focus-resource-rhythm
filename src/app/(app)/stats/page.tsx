@@ -13,6 +13,9 @@ import {
 } from "recharts";
 import { useStore } from "@/lib/demo/store";
 import { Card, CardTitle } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { RevealList, RevealItem } from "@/components/ui/reveal";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { formatMinutes } from "@/lib/format";
 import { TASK_STATUS_LABELS, type TaskStatus } from "@/domain/types";
 
@@ -71,33 +74,42 @@ export default function StatsPage() {
   const plannedTotal = state.tasks.reduce((s, t) => s + t.plannedMinutes, 0);
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Статистика</h1>
-        <p className="mt-1 text-sm text-muted">Показатели помогают принять решение, а не украшают экран.</p>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Аналитика"
+        title="Статистика"
+        subtitle="Показатели помогают принять решение, а не украшают экран."
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardTitle>Выполнение</CardTitle>
-          <p className="mt-2 text-2xl font-semibold">{completion}%</p>
-          <p className="text-xs text-muted">{done} из {total} задач</p>
-        </Card>
-        <Card>
-          <CardTitle>Плановое время</CardTitle>
-          <p className="mt-2 text-2xl font-semibold">{formatMinutes(plannedTotal)}</p>
-          <p className="text-xs text-muted">по всем задачам</p>
-        </Card>
-        <Card>
-          <CardTitle>Активных результатов</CardTitle>
-          <p className="mt-2 text-2xl font-semibold">
-            {state.results.filter((r) => r.zone === "now").length} / 3
-          </p>
-          <p className="text-xs text-muted">в зоне «Сейчас»</p>
-        </Card>
-      </div>
+      <RevealList className="grid gap-3 sm:grid-cols-3">
+        <RevealItem>
+          <Card className="h-full">
+            <CardTitle>Выполнение</CardTitle>
+            <p className="mt-2 text-3xl font-extrabold text-primary">
+              <AnimatedNumber value={completion} format={(n) => `${Math.round(n)}%`} />
+            </p>
+            <p className="text-xs text-muted">{done} из {total} задач</p>
+          </Card>
+        </RevealItem>
+        <RevealItem>
+          <Card className="h-full">
+            <CardTitle>Плановое время</CardTitle>
+            <p className="mt-2 text-3xl font-extrabold">{formatMinutes(plannedTotal)}</p>
+            <p className="text-xs text-muted">по всем задачам</p>
+          </Card>
+        </RevealItem>
+        <RevealItem>
+          <Card className="h-full">
+            <CardTitle>Активных результатов</CardTitle>
+            <p className="mt-2 text-3xl font-extrabold">
+              {state.results.filter((r) => r.zone === "now").length} / 3
+            </p>
+            <p className="text-xs text-muted">в зоне «Сейчас»</p>
+          </Card>
+        </RevealItem>
+      </RevealList>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Card>
           <CardTitle>Задачи по статусам</CardTitle>
           <div className="mt-2 h-56 w-full">
@@ -178,7 +190,7 @@ export default function StatsPage() {
         </Card>
       </div>
 
-      <Card className="border-dashed">
+      <Card className="mt-4 border-dashed">
         <CardTitle>Появится с историей данных</CardTitle>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
           <li>Процент выполнения по дням и неделям; план/факт времени и денег.</li>

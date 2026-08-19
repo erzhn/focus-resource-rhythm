@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { differenceInCalendarDays } from "date-fns";
-import { Bell } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { Card, EmptyState } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal, RevealList, RevealItem } from "@/components/ui/reveal";
+import { plural } from "@/lib/ui/text";
 
 interface DerivedNotification {
   id: string;
@@ -61,36 +64,44 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-2">
-        <Bell className="h-5 w-5" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Уведомления</h1>
-          <p className="text-sm text-muted">
-            Непрочитанных: {items.length}. Каждое ведёт к конкретному действию.
-          </p>
-        </div>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow={<span className="inline-flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Сигналы</span>}
+        title="Уведомления"
+        subtitle={
+          items.length === 0
+            ? "Каждое ведёт к конкретному действию."
+            : `${items.length} ${plural(items.length, "сигнал", "сигнала", "сигналов")} · каждое ведёт к действию.`
+        }
+      />
 
       {items.length === 0 ? (
-        <EmptyState title="Уведомлений нет" hint="Всё под контролем." />
+        <Reveal>
+          <EmptyState
+            icon={<BellOff className="h-6 w-6" />}
+            title="Уведомлений нет"
+            hint="Всё под контролем — новые сигналы появятся, когда что-то потребует внимания."
+          />
+        </Reveal>
       ) : (
-        <div className="space-y-2">
+        <RevealList className="space-y-2">
           {items.map((n) => (
-            <Link key={n.id} href={n.href}>
-              <Card className="flex items-start gap-3 transition hover:bg-surface-2">
-                <span
-                  className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: toneVar[n.tone] }}
-                />
-                <div>
-                  <p className="text-sm font-medium">{n.title}</p>
-                  <p className="text-xs text-muted">{n.body}</p>
-                </div>
-              </Card>
-            </Link>
+            <RevealItem key={n.id}>
+              <Link href={n.href} className="block">
+                <Card interactive className="flex items-start gap-3">
+                  <span
+                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: toneVar[n.tone] }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{n.title}</p>
+                    <p className="text-xs text-muted">{n.body}</p>
+                  </div>
+                </Card>
+              </Link>
+            </RevealItem>
           ))}
-        </div>
+        </RevealList>
       )}
     </div>
   );

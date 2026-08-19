@@ -112,9 +112,10 @@ export default function AssistantPage() {
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col md:h-[calc(100dvh-5rem)]">
       <header className="mb-3">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Sparkles className="h-6 w-6 text-primary" /> Ассистент
-        </h1>
+        <div className="mb-1 flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-primary">
+          <Sparkles className="h-3.5 w-3.5" /> Диалог
+        </div>
+        <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">Ассистент</h1>
         <p className="mt-1 text-sm text-muted">
           Спросите о планах, задачах и приоритетах — ассистент видит ваш контекст. Или просто
           поговорите.
