@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { APP } from "@/config/app";
-import { resolveAssistant, streamAssistant } from "@/lib/assistant/providers";
+import { resolveAssistantChain, streamWithFallback } from "@/lib/assistant/providers";
 
 /**
  * AI-ассистент. Работает на сервере: ключи не попадают в клиент и не логируются.
- * Провайдер выбирается автоматически (бесплатные — в приоритете) или через
- * ASSISTANT_PROVIDER: ollama (локально, бесплатно) | gemini | groq | anthropic.
- * Ответ отдаётся потоково.
+ * Провайдеры образуют цепочку (ASSISTANT_PROVIDER задаёт первого, остальные —
+ * запасные): ollama (локально) | gemini | groq | anthropic. Если основной падает
+ * до начала ответа, автоматически подхватывает следующий. Ответ отдаётся потоково.
  */
 
 export const runtime = "nodejs";
@@ -47,7 +47,7 @@ function systemPrompt(context: string | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
-  const resolved = resolveAssistant();
+  const resolved = resolveAssistantChain();
   if (!resolved.ok) {
     return NextResponse.json({ error: resolved.reason }, { status: 503 });
   }
@@ -62,20 +62,21 @@ export async function POST(req: NextRequest) {
   const system = systemPrompt(parsed.context);
   const encoder = new TextEncoder();
 
+  const onlyOllama = resolved.chain.length === 1 && resolved.chain[0].provider === "ollama";
+
   const readable = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
         let any = false;
-        for await (const chunk of streamAssistant(resolved, system, parsed.messages)) {
+        for await (const chunk of streamWithFallback(resolved.chain, system, parsed.messages)) {
           any = true;
           controller.enqueue(encoder.encode(chunk));
         }
         if (!any) controller.enqueue(encoder.encode("(пустой ответ)"));
       } catch {
-        const hint =
-          resolved.provider === "ollama"
-            ? "Не удалось связаться с Ollama. Установите его (ollama.com), выполните `ollama run llama3.2` и повторите — это бесплатный локальный вариант."
-            : "Не удалось получить ответ. Проверьте ключ провайдера и повторите.";
+        const hint = onlyOllama
+          ? "Не удалось связаться с Ollama. Установите его (ollama.com), выполните `ollama run llama3.2` и повторите — это бесплатный локальный вариант."
+          : "Ни один из настроенных провайдеров не ответил. Проверьте ключи и повторите.";
         controller.enqueue(encoder.encode(`\n\n[${hint}]`));
       } finally {
         controller.close();
@@ -87,7 +88,10 @@ export async function POST(req: NextRequest) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
-      "X-Assistant-Provider": resolved.provider,
+      // Основной провайдер и полная цепочка (заголовки уходят до начала потока,
+      // поэтому фактически ответивший может отличаться при срабатывании фолбэка).
+      "X-Assistant-Provider": resolved.chain[0].provider,
+      "X-Assistant-Chain": resolved.chain.map((c) => c.provider).join(","),
     },
   });
 }

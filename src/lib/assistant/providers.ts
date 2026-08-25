@@ -1,23 +1,36 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { buildProviderChain, streamFirstAvailable, type AssistantProvider } from "./chain";
 
 /**
  * Провайдеры AI-ассистента. Поддержаны бесплатные варианты (Ollama локально,
- * Gemini/Groq бесплатные тарифы) и платный Claude. Выбор — через ASSISTANT_PROVIDER,
- * иначе автоопределение по наличию ключей; если ничего не задано — Ollama (локально).
+ * Gemini/Groq бесплатные тарифы) и платный Claude.
+ *
+ * Провайдеры образуют ЦЕПОЧКУ: если первый падает до выдачи первого фрагмента
+ * (кончилась квота, сервис недоступен), автоматически берётся следующий с ключом.
+ * ASSISTANT_PROVIDER задаёт, кто идёт первым; остальные остаются запасными.
  *
  * Все ключи используются только на сервере и не логируются.
  */
 
-export type AssistantProvider = "ollama" | "gemini" | "groq" | "anthropic";
+export type { AssistantProvider };
 
 export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
 }
 
+export interface Candidate {
+  provider: AssistantProvider;
+  model: string;
+}
+
 export type Resolved =
   | { ok: true; provider: AssistantProvider; model: string }
+  | { ok: false; reason: string };
+
+export type ResolvedChain =
+  | { ok: true; chain: Candidate[] }
   | { ok: false; reason: string };
 
 const env = (k: string) => process.env[k]?.trim() || "";
@@ -32,36 +45,53 @@ const DEFAULT_MODEL: Record<AssistantProvider, string> = {
   anthropic: "claude-opus-5",
 };
 
-/** Определяет активного провайдера и модель. */
-export function resolveAssistant(): Resolved {
-  const forced = env("ASSISTANT_PROVIDER").toLowerCase() as AssistantProvider | "";
-  const model = (p: AssistantProvider) => env("ASSISTANT_MODEL") || DEFAULT_MODEL[p];
+/** Строит цепочку провайдеров: первый — основной, остальные — запасные. */
+export function resolveAssistantChain(): ResolvedChain {
+  const built = buildProviderChain({
+    forced: env("ASSISTANT_PROVIDER"),
+    hasGemini: Boolean(env("GEMINI_API_KEY")),
+    hasGroq: Boolean(env("GROQ_API_KEY")),
+    hasAnthropic: Boolean(env("ANTHROPIC_API_KEY")),
+    // На Vercel локального Ollama нет — не тратим на него попытку.
+    allowOllama: !env("VERCEL"),
+  });
+  if (!built.ok) return built;
 
-  const has: Record<AssistantProvider, boolean> = {
-    anthropic: Boolean(env("ANTHROPIC_API_KEY")),
-    gemini: Boolean(env("GEMINI_API_KEY")),
-    groq: Boolean(env("GROQ_API_KEY")),
-    ollama: true, // локальный сервер, ключ не нужен
+  const override = env("ASSISTANT_MODEL");
+  return {
+    ok: true,
+    chain: built.chain.map((provider) => ({
+      provider,
+      // Явная модель применяется только к основному провайдеру: у запасных
+      // своя линейка имён, чужое имя модели там невалидно.
+      model: override && provider === built.chain[0] ? override : DEFAULT_MODEL[provider],
+    })),
   };
-
-  if (forced) {
-    if (!(forced in DEFAULT_MODEL)) return { ok: false, reason: `Неизвестный ASSISTANT_PROVIDER: ${forced}` };
-    if (forced !== "ollama" && !has[forced]) {
-      return { ok: false, reason: `Для провайдера ${forced} не задан API-ключ.` };
-    }
-    return { ok: true, provider: forced, model: model(forced) };
-  }
-
-  // Автоопределение: бесплатные ключи в приоритете, затем Claude, затем локальный Ollama.
-  if (has.gemini) return { ok: true, provider: "gemini", model: model("gemini") };
-  if (has.groq) return { ok: true, provider: "groq", model: model("groq") };
-  if (has.anthropic) return { ok: true, provider: "anthropic", model: model("anthropic") };
-  return { ok: true, provider: "ollama", model: model("ollama") };
 }
 
-/** Единый интерфейс: генератор текстовых фрагментов ответа. */
+/**
+ * Поток ответа с автоматическим переходом на запасного провайдера.
+ *
+ * Переключаемся ТОЛЬКО если сбой случился до первого выданного фрагмента:
+ * иначе ответ склеился бы из двух разных моделей. `onProvider` сообщает,
+ * кто в итоге отвечает.
+ */
+export function streamWithFallback(
+  chain: Candidate[],
+  system: string,
+  messages: AssistantMessage[],
+  onProvider?: (c: Candidate) => void,
+): AsyncGenerator<string> {
+  return streamFirstAvailable(
+    chain,
+    (candidate) => streamAssistant(candidate, system, messages),
+    onProvider,
+  );
+}
+
+/** Единый интерфейс: генератор текстовых фрагментов ответа одного провайдера. */
 export async function* streamAssistant(
-  resolved: Extract<Resolved, { ok: true }>,
+  resolved: Candidate,
   system: string,
   messages: AssistantMessage[],
 ): AsyncGenerator<string> {
