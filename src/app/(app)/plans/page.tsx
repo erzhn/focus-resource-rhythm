@@ -76,7 +76,7 @@ export default function PlansPage() {
                         <button
                           key={z}
                           onClick={() => handleMove(r.id, z)}
-                          className="rounded-lg bg-surface px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+                          className="inline-flex min-h-[44px] items-center rounded-lg bg-surface px-3 text-[11px] text-muted transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--ring)] md:min-h-[30px]"
                         >
                           → {FOCUS_ZONE_LABELS[z]}
                         </button>
@@ -93,7 +93,7 @@ export default function PlansPage() {
 
       {/* Входящие */}
       <section className="mt-6 space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-bold uppercase tracking-[0.06em] text-muted">Входящие и задачи</h2>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-2" />

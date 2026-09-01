@@ -51,3 +51,10 @@ next-env.d.ts
 # supabase local CLI state
 /supabase/.temp/
 /supabase/.branches/
+
+# Артефакты аудита (локальные)
+/audit-screens/
+/test-results/
+/playwright-report/
+lh-*.json
+playwright.audit.config.ts

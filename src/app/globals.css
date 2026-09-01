@@ -18,7 +18,7 @@
   --surface-3: #e6dfd2;
   --foreground: #201e1a;
   --muted: #6c675c;
-  --muted-2: #948d80;
+  --muted-2: #66625e;
   --border: #e6ded1;
   --border-strong: #d6ccb9;
 
@@ -80,7 +80,7 @@
     --surface-3: #2c313b;
     --foreground: #ece9e2;
     --muted: #9a938a;
-    --muted-2: #7b756b;
+    --muted-2: #a49b8c;
     --border: #2f333c;
     --border-strong: #3b404b;
 
@@ -124,7 +124,7 @@
   --surface-3: #2c313b;
   --foreground: #ece9e2;
   --muted: #9a938a;
-  --muted-2: #7b756b;
+  --muted-2: #a49b8c;
   --border: #2f333c;
   --border-strong: #3b404b;
   --primary: #838bf7;
@@ -249,4 +249,22 @@ h1, h2, h3 {
     scroll-behavior: auto !important;
   }
   body { background-attachment: scroll; }
+}
+
+/* Плейсхолдеры: Tailwind по умолчанию красит их текстом с 50% прозрачности,
+   что даёт контраст 3.1:1. Задаём непрозрачный токен (проверено на 4.5:1). */
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-2);
+  opacity: 1;
+}
+
+/* iOS Safari зумит страницу, если шрифт поля меньше 16px. На мобильных ширинах
+   принудительно поднимаем до 16px, на десктопе оставляем компактный размер. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }

@@ -34,11 +34,12 @@ export function ResourceMeter({
         {label}
       </div>
       <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-surface-3">
+        {/* scaleX вместо width: width — лейаут-свойство и вызывает пересчёт вёрстки (CLS). */}
         <motion.div
-          className="h-full rounded-full"
+          className="h-full w-full origin-left rounded-full"
           style={{ backgroundColor: color }}
-          initial={{ width: reduce ? `${v * 100}%` : 0 }}
-          animate={{ width: `${v * 100}%` }}
+          initial={{ scaleX: reduce ? v : 0 }}
+          animate={{ scaleX: v }}
           transition={{ duration: reduce ? 0 : 0.7, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>

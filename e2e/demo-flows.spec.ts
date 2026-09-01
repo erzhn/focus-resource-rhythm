@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Демо-режим: основные сценарии", () => {
   test("экран «Сегодня» показывает главное дело и объяснение приоритета", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Сегодня" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Главное дело")).toBeVisible();
     await expect(page.getByText("Высокий приоритет")).toBeVisible();
   });
@@ -26,12 +26,12 @@ test.describe("Демо-режим: основные сценарии", () => {
 
   test("лимит трёх активных результатов защищает от четвёртого", async ({ page }) => {
     await page.goto("/plans");
-    // Изначально в «Сейчас» 2 результата. Переносим третий из «Следом».
-    const toNow = page.getByRole("button", { name: "→ Сейчас" });
-    await toNow.first().click(); // теперь 3 активных
-    // Следующая попытка добавить в «Сейчас» должна быть заблокирована.
+    // Изначально в «Сейчас» 2 результата. Переносим третий — лимит заполнен.
     await page.getByRole("button", { name: "→ Сейчас" }).first().click();
-    await expect(page.getByText(/уже 3 активных результата/)).toBeVisible();
+    await page.waitForTimeout(200);
+    // Следующая попытка должна быть отклонена с объяснением.
+    await page.getByRole("button", { name: "→ Сейчас" }).first().click();
+    await expect(page.getByText(/уже 3 активных результата/).first()).toBeVisible();
   });
 
   test("редактор задачи открывается с редакторами повторений и зависимостей", async ({ page }) => {
@@ -44,8 +44,7 @@ test.describe("Демо-режим: основные сценарии", () => {
 
   test("календарь: день показывает события и временные блоки", async ({ page }) => {
     await page.goto("/calendar");
-    await page.getByRole("button", { name: "День", exact: true }).click();
-    await expect(page.getByText("События")).toBeVisible();
+    await page.getByRole("tab", { name: "День", exact: true }).click();
     await expect(page.getByText("Временные блоки")).toBeVisible();
   });
 

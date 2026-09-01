@@ -34,6 +34,8 @@ export default function ReviewsPage() {
           <button
             key={key}
             role="tab"
+            id={`tab-${key}`}
+            aria-controls={`panel-${key}`}
             aria-selected={tab === key}
             onClick={() => setTab(key)}
             className={`relative flex flex-1 items-center justify-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] ${
@@ -53,7 +55,9 @@ export default function ReviewsPage() {
           </button>
         ))}
       </div>
-      <Reveal key={tab}>{tab === "evening" ? <EveningReview /> : <WeeklyReview />}</Reveal>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        <Reveal key={tab}>{tab === "evening" ? <EveningReview /> : <WeeklyReview />}</Reveal>
+      </div>
     </div>
   );
 }
@@ -79,7 +83,7 @@ function EveningReview() {
         </Card>
         <Card>
           <CardTitle>Частично</CardTitle>
-          <p className="mt-2 text-2xl font-semibold text-[var(--warning)]">{partial}</p>
+          <p className="mt-2 text-2xl font-semibold text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">{partial}</p>
         </Card>
         <Card>
           <CardTitle>Осталось</CardTitle>
@@ -118,7 +122,7 @@ function EveningReview() {
               key={n}
               onClick={() => setEveningEnergy(n)}
               aria-label={`Силы вечером ${n}`}
-              className={`h-8 w-8 rounded-lg border text-sm ${
+              className={`h-11 w-11 rounded-lg border text-sm md:h-9 md:w-9 ${
                 state.eveningEnergy === n ? "border-primary bg-primary text-primary-fg" : "border-border"
               }`}
             >
@@ -193,7 +197,7 @@ function UnfinishedActions({ taskId }: { taskId: string }) {
             </Button>
           </div>
           {!reason.trim() && (
-            <p className="mt-1 text-[11px] text-[var(--warning)]">
+            <p className="mt-1 text-[11px] text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">
               Перенос возможен только с указанием причины.
             </p>
           )}
@@ -250,7 +254,7 @@ function WeeklyReview() {
 
       {(noAction.length > 0 || noProgress.length > 0) && (
         <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
-          <CardTitle className="text-[var(--warning)]">Требует внимания</CardTitle>
+          <CardTitle className="text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">Требует внимания</CardTitle>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
             {noAction.map((r) => (
               <li key={r.id}>«{r.title}» — активный результат без ближайшего действия.</li>
@@ -372,7 +376,7 @@ function Chip({
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${
+      className={`inline-flex min-h-[44px] items-center rounded-lg border px-3 text-[11px] transition md:min-h-[32px] ${
         active ? "border-primary bg-primary text-primary-fg" : "border-border hover:bg-surface-2"
       }`}
     >

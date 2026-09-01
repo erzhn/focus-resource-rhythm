@@ -112,7 +112,7 @@ export default function AssistantPage() {
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col md:h-[calc(100dvh-5rem)]">
       <header className="mb-3">
-        <div className="mb-1 flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-primary">
+        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
           <Sparkles className="h-3.5 w-3.5" /> Диалог
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">Ассистент</h1>
@@ -131,7 +131,7 @@ export default function AssistantPage() {
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="rounded-xl border border-border px-3 py-1.5 text-xs hover:bg-surface-2"
+                  className="inline-flex min-h-[44px] items-center rounded-xl border border-border px-3 text-xs transition-colors hover:bg-surface-2 md:min-h-[34px]"
                 >
                   {s}
                 </button>
@@ -166,7 +166,7 @@ export default function AssistantPage() {
 
         {notice && (
           <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
-            <p className="text-sm text-[var(--warning)]">{notice}</p>
+            <p className="text-sm text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">{notice}</p>
           </Card>
         )}
       </div>

@@ -237,29 +237,26 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
 
   const moveZone = useCallback<StoreValue["moveZone"]>(
     (resultId, zone) => {
-      let result = { ok: true, message: "" };
-      setState((s) => {
-        if (zone === "now") {
-          const check = canAddToNow(
-            s.results
-              .filter((r) => r.id !== resultId)
-              .map((r) => ({ id: r.id, title: r.title, zone: r.zone, hasNextAction: true })),
-          );
-          if (!check.allowed) {
-            result = { ok: false, message: check.message };
-            return s;
-          }
-        }
-        result = { ok: true, message: "Зона обновлена." };
-        return {
-          ...s,
-          results: s.results.map((r) => (r.id === resultId ? { ...r, zone } : r)),
-        };
-      });
-      if (result.ok) persist((p) => p.setResultZone(resultId, zone));
-      return result;
+      // Решение принимаем синхронно из текущего состояния: React вызывает
+      // обновляющую функцию setState не сразу, поэтому читать результат из
+      // переменной, изменённой внутри неё, ненадёжно — сообщение выходило пустым.
+      if (zone === "now") {
+        const check = canAddToNow(
+          state.results
+            .filter((r) => r.id !== resultId)
+            .map((r) => ({ id: r.id, title: r.title, zone: r.zone, hasNextAction: true })),
+        );
+        if (!check.allowed) return { ok: false, message: check.message };
+      }
+
+      setState((s) => ({
+        ...s,
+        results: s.results.map((r) => (r.id === resultId ? { ...r, zone } : r)),
+      }));
+      persist((p) => p.setResultZone(resultId, zone));
+      return { ok: true, message: "Зона обновлена." };
     },
-    [persist],
+    [persist, state.results],
   );
 
   const confirmDayPlan = useCallback(() => {

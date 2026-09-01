@@ -1,16 +1,7 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useStore } from "@/lib/demo/store";
 import { Card, CardTitle } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/ui/page-header";
@@ -18,6 +9,11 @@ import { RevealList, RevealItem } from "@/components/ui/reveal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { formatMinutes } from "@/lib/format";
 import { TASK_STATUS_LABELS, type TaskStatus } from "@/domain/types";
+
+// recharts грузится только здесь — на остальных страницах он в бандл не попадает.
+const chartFallback = () => <Skeleton className="h-full w-full" />;
+const StatusPie = dynamic(() => import("@/components/stats/charts").then((m) => m.StatusPie), { ssr: false, loading: chartFallback });
+const SimpleBar = dynamic(() => import("@/components/stats/charts").then((m) => m.SimpleBar), { ssr: false, loading: chartFallback });
 
 const STATUS_COLORS: Partial<Record<TaskStatus, string>> = {
   done: "#2f7d4f",
@@ -113,16 +109,7 @@ export default function StatsPage() {
         <Card>
           <CardTitle>Задачи по статусам</CardTitle>
           <div className="mt-2 h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80}>
-                  {statusData.map((d) => (
-                    <Cell key={d.status} fill={STATUS_COLORS[d.status] ?? "#888"} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <StatusPie data={statusData.map((d) => ({ ...d, color: STATUS_COLORS[d.status] ?? "#888" }))} />
           </div>
           {/* Текстовая альтернатива */}
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
@@ -138,18 +125,7 @@ export default function StatsPage() {
         <Card>
           <CardTitle>Нагрузка по сферам жизни (мин)</CardTitle>
           <div className="mt-2 h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={areaLoad}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--muted)" />
-                <YAxis tick={{ fontSize: 11 }} stroke="var(--muted)" />
-                <Tooltip formatter={(v) => `${v} мин`} />
-                <Bar dataKey="minutes">
-                  {areaLoad.map((d, i) => (
-                    <Cell key={i} fill={d.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <SimpleBar data={areaLoad} dataKey="minutes" formatter={(v) => `${v} мин`} />
           </div>
           <p className="mt-1 text-[11px] text-muted">
             {areaLoad.map((d) => `${d.name}: ${formatMinutes(d.minutes)}`).join(" · ")}
@@ -159,18 +135,7 @@ export default function StatsPage() {
         <Card>
           <CardTitle>Распределение приоритета</CardTitle>
           <div className="mt-2 h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={priorityDist}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--muted)" />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--muted)" />
-                <Tooltip />
-                <Bar dataKey="value">
-                  {priorityDist.map((d, i) => (
-                    <Cell key={i} fill={d.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <SimpleBar data={priorityDist} dataKey="value" allowDecimals={false} />
           </div>
           <p className="mt-1 text-[11px] text-muted">
             {priorityDist.map((d) => `${d.name}: ${d.value}`).join(" · ")}

@@ -52,11 +52,12 @@ export function Button({
     outline: "border border-border-strong bg-surface hover:bg-surface-2 text-foreground",
     danger: "bg-[var(--danger)] text-white hover:brightness-105",
   };
+  // На мобильных высоты не меньше 44px (тач), на десктопе компактнее.
   const sizes: Record<string, string> = {
-    sm: "h-8 px-3 text-xs gap-1.5",
-    md: "h-10 px-4 text-sm gap-2",
+    sm: "h-11 px-3 text-xs gap-1.5 md:h-8",
+    md: "h-11 px-4 text-sm gap-2 md:h-10",
     lg: "h-12 px-6 text-base gap-2",
-    icon: "h-10 w-10",
+    icon: "h-11 w-11 md:h-10 md:w-10",
   };
   return (
     <motion.button
@@ -88,7 +89,15 @@ export function Badge({
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
         className,
       )}
-      style={color ? { backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`, color } : undefined}
+      // Текст сдвигаем к цвету темы: на светлой темнее, на тёмной светлее — контраст растёт в обеих.
+      style={
+        color
+          ? {
+              backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`,
+              color: `color-mix(in oklab, ${color} 58%, var(--foreground))`,
+            }
+          : undefined
+      }
     >
       {children}
     </span>

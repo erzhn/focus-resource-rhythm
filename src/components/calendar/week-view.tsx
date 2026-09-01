@@ -62,7 +62,8 @@ function DayColumn({
 
       <div className="space-y-1.5">
         {events.map((e) => (
-          <div key={e.id} className="rounded-lg bg-[var(--zone-next)]/15 px-2 py-1 text-[11px] text-[var(--zone-next)]">
+          <div key={e.id} className="rounded-lg bg-[var(--zone-next)]/15 px-2 py-1 text-[11px]"
+            style={{ color: "color-mix(in oklab, var(--zone-next) 70%, var(--foreground))" }}>
             {formatTime(e.start)} {e.title}
           </div>
         ))}
@@ -82,7 +83,7 @@ function DraggableTask({ task, onMove }: { task: DemoTask; onMove: (id: string, 
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border border-border bg-surface-2 px-2 py-1 text-[11px] transition-opacity ${
+      className={`overflow-hidden rounded-lg border border-border bg-surface-2 px-2 py-1 text-[11px] transition-opacity ${
         isDragging ? "opacity-30" : ""
       }`}
     >
@@ -91,17 +92,17 @@ function DraggableTask({ task, onMove }: { task: DemoTask; onMove: (id: string, 
         <button
           aria-label="Перенести на день раньше"
           onClick={() => onMove(task.id, -1)}
-          className="rounded p-0.5 hover:bg-border"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-border focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
         >
           <ChevronLeft className="h-3 w-3" />
         </button>
-        <span className="flex-1 cursor-grab touch-none select-none" {...listeners} {...attributes}>
+        <span className="min-w-0 flex-1 cursor-grab truncate touch-none select-none" {...listeners} {...attributes}>
           {task.title}
         </span>
         <button
           aria-label="Перенести на день позже"
           onClick={() => onMove(task.id, 1)}
-          className="rounded p-0.5 hover:bg-border"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-border focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
         >
           <ChevronRight className="h-3 w-3" />
         </button>

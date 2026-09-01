@@ -31,7 +31,7 @@ export default function SettingsPage() {
       {isDemoMode && (
         <RevealItem>
           <Card className="border-[var(--warning)]/40 bg-[var(--warning)]/10">
-            <p className="text-sm text-[var(--warning)]">
+            <p className="text-sm text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">
               Демо-режим. Данные хранятся в памяти и сбрасываются при перезагрузке. Чтобы включить
               реальное хранение (PostgreSQL + RLS), задайте переменные Supabase в{" "}
               <code>.env.local</code> — см. README.
@@ -90,14 +90,14 @@ export default function SettingsPage() {
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/integrations/google"
-            className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-surface-2"
+            className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-3 text-xs transition-colors hover:bg-surface-2 md:min-h-[34px]"
           >
             Подключить Google
           </a>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/integrations/microsoft"
-            className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-surface-2"
+            className="inline-flex min-h-[44px] items-center rounded-lg border border-border px-3 text-xs transition-colors hover:bg-surface-2 md:min-h-[34px]"
           >
             Подключить Microsoft
           </a>

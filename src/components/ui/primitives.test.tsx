@@ -24,11 +24,13 @@ describe("EmptyState", () => {
 });
 
 describe("Badge", () => {
-  it("рендерит содержимое и применяет цвет", () => {
+  it("рендерит содержимое и подмешивает цвет темы для контраста", () => {
     render(<Badge color="#ff0000">метка</Badge>);
     const el = screen.getByText("метка");
     expect(el).toBeInTheDocument();
-    expect(el).toHaveStyle({ color: "#ff0000" });
+    // Текст сдвигается к --foreground, иначе на цветной подложке контраст ниже 4.5:1.
+    expect(el.getAttribute("style")).toContain("color-mix(in oklab, #ff0000 58%, var(--foreground))");
+    expect(el.getAttribute("style")).toContain("rgb(255, 0, 0) 15%, transparent");
   });
 });
 

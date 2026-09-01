@@ -166,7 +166,7 @@ export function CommandMenu() {
                 placeholder="Команда или поиск задачи…"
                 className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-2"
               />
-              <kbd className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-muted-2">Esc</kbd>
+              <kbd className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-muted-2">Esc</kbd>
             </div>
             <div className="flex">
               <div className="max-h-[52vh] flex-1 overflow-y-auto p-2 md:border-r md:border-border" role="listbox" aria-label="Результаты">

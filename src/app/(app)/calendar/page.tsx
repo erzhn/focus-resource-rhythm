@@ -56,9 +56,11 @@ export default function CalendarPage() {
                 <button
                   key={m.key}
                   role="tab"
+                  id={`tab-${m.key}`}
+                  aria-controls="calendar-panel"
                   aria-selected={mode === m.key}
                   onClick={() => setMode(m.key)}
-                  className={`rounded-[var(--r-sm)] px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] ${
+                  className={`min-h-[40px] rounded-[var(--r-sm)] px-3 text-xs font-medium transition-colors md:min-h-[32px] focus-visible:outline-2 focus-visible:outline-[var(--ring)] ${
                     mode === m.key ? "bg-primary text-primary-fg shadow-primary" : "text-muted hover:text-foreground"
                   }`}
                 >
@@ -74,23 +76,25 @@ export default function CalendarPage() {
       />
 
       <div className="flex items-center gap-2">
-        <button onClick={() => shift(-1)} aria-label="Назад" className="rounded-lg border border-border p-1.5 hover:bg-surface-2">
+        <button onClick={() => shift(-1)} aria-label="Назад" className="flex h-11 w-11 items-center justify-center rounded-lg border border-border hover:bg-surface-2 md:h-9 md:w-9">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <button onClick={() => setCursor(new Date())} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-surface-2">
+        <button onClick={() => setCursor(new Date())} className="inline-flex h-11 items-center rounded-lg border border-border px-3 text-xs hover:bg-surface-2 md:h-9">
           Сегодня
         </button>
-        <button onClick={() => shift(1)} aria-label="Вперёд" className="rounded-lg border border-border p-1.5 hover:bg-surface-2">
+        <button onClick={() => shift(1)} aria-label="Вперёд" className="flex h-11 w-11 items-center justify-center rounded-lg border border-border hover:bg-surface-2 md:h-9 md:w-9">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
+      <div role="tabpanel" id="calendar-panel" aria-labelledby={`tab-${mode}`}>
       <Reveal key={mode}>
         {mode === "day" && <DayView cursor={cursor} onEditEvent={(e) => setEditingEvent({ mode: "edit", event: e })} />}
         {mode === "week" && <WeekView cursor={cursor} />}
         {mode === "month" && <MonthView cursor={cursor} onPickDay={(d) => { setCursor(d); setMode("day"); }} />}
         {mode === "year" && <YearView cursor={cursor} onPickMonth={(d) => { setCursor(d); setMode("month"); }} />}
       </Reveal>
+      </div>
 
       {editingEvent && <EventModal editing={editingEvent} onClose={() => setEditingEvent(null)} />}
     </div>
@@ -115,7 +119,7 @@ function DayView({ cursor, onEditEvent }: { cursor: Date; onEditEvent: (e: impor
     <div className="space-y-3">
       {conflicts.length > 0 && (
         <Card className="border-[var(--attention)]/40 bg-[var(--attention)]/10">
-          <CardTitle className="flex items-center gap-1.5 text-[var(--attention)]">
+          <CardTitle className="flex items-center gap-1.5 text-[color-mix(in_oklab,var(--attention)_58%,var(--foreground))]">
             <TriangleAlert className="h-3.5 w-3.5" /> Конфликты расписания
           </CardTitle>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
@@ -199,7 +203,7 @@ function MonthView({ cursor, onPickDay }: { cursor: Date; onPickDay: (d: Date) =
           >
             <span className="text-xs font-medium">{day.getDate()}</span>
             {n > 0 && (
-              <span className="mt-auto inline-flex items-center gap-1 text-[10px] text-primary">
+              <span className="mt-auto inline-flex items-center gap-1 text-[11px] text-primary">
                 ● {n}
               </span>
             )}
@@ -241,10 +245,10 @@ function YearView({ cursor, onPickMonth }: { cursor: Date; onPickMonth: (d: Date
                 <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, load * 20)}%` }} />
               </div>
               {i === new Date().getMonth() && year === new Date().getFullYear() && (
-                <p className="mt-1 text-[10px] text-primary">текущий месяц</p>
+                <p className="mt-1 text-[11px] text-primary">текущий месяц</p>
               )}
               {results.length > 0 && i === 1 && (
-                <p className="mt-1 truncate text-[10px] text-muted">{results.length} активных результата</p>
+                <p className="mt-1 truncate text-[11px] text-muted">{results.length} активных результата</p>
               )}
             </button>
           );

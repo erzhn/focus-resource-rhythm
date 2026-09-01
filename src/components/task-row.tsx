@@ -21,7 +21,7 @@ export function PriorityPill({ score, manual }: { score: number; manual?: boolea
   return (
     <span
       className="inline-flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full px-2 text-xs font-bold tabular-nums"
-      style={{ backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`, color }}
+      style={{ backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`, color: `color-mix(in oklab, ${color} 58%, var(--foreground))` }}
       title={manual ? "Ручной приоритет" : "Системная рекомендация"}
     >
       {score}
@@ -53,6 +53,8 @@ export function TaskRow({ task, showActions = true }: { task: DemoTask; showActi
             aria-label={done ? "Вернуть в работу" : "Отметить выполненной"}
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+              // Зона нажатия расширена до 44px на мобильных, квадрат остаётся 20px.
+              "relative before:absolute before:-inset-3 before:content-[''] md:before:hidden",
               done ? "border-success bg-success text-white" : "border-border-strong hover:border-primary",
             )}
           >
@@ -65,10 +67,11 @@ export function TaskRow({ task, showActions = true }: { task: DemoTask; showActi
           <div className="flex items-center gap-2">
             <span className={cn("relative text-sm font-medium", done && "text-muted")}>
               {task.title}
+              {/* scaleX вместо width — не трогает вёрстку (см. CLS). */}
               <motion.span
-                className="absolute left-0 top-1/2 h-px bg-current"
+                className="absolute left-0 top-1/2 h-px w-full origin-left bg-current"
                 initial={false}
-                animate={{ width: done ? "100%" : "0%" }}
+                animate={{ scaleX: done ? 1 : 0 }}
                 transition={reduce ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 aria-hidden
               />
@@ -83,11 +86,11 @@ export function TaskRow({ task, showActions = true }: { task: DemoTask; showActi
             <span>{TASK_STATUS_LABELS[task.status]}</span>
             <span>{formatMinutes(task.plannedMinutes)}</span>
             {task.dueDate && <span>срок {formatDate(task.dueDate)}</span>}
-            <button onClick={() => setExpanded((v) => !v)} className="inline-flex items-center gap-0.5 font-semibold text-primary">
+            <button onClick={() => setExpanded((v) => !v)} className="inline-flex min-h-[44px] items-center gap-0.5 font-semibold text-primary md:min-h-0">
               <Info className="h-3 w-3" /> почему
               <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
             </button>
-            <button onClick={() => openEdit(task.id)} className="inline-flex items-center gap-0.5 font-semibold text-primary">
+            <button onClick={() => openEdit(task.id)} className="inline-flex min-h-[44px] items-center gap-0.5 font-semibold text-primary md:min-h-0">
               <Pencil className="h-3 w-3" /> изменить
             </button>
           </div>

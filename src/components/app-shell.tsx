@@ -51,6 +51,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh md:flex">
       {/* Боковая навигация (desktop) */}
       <motion.aside
+        // initial={false}: без него ширина анимируется уже при монтировании и
+        // переверстывает всю страницу (CLS до 2.0). Анимируем только по клику.
+        initial={false}
         animate={{ width: collapsed ? 78 : 264 }}
         transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 32 }}
         className="sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-border/70 bg-surface/70 px-3 py-4 backdrop-blur-xl md:flex"
@@ -68,7 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="min-w-0"
               >
                 <div className="truncate text-sm font-extrabold leading-tight">{APP.name}</div>
-                <div className="truncate text-[10px] text-muted-2">{APP.tagline}</div>
+                <div className="truncate text-[11px] text-muted-2">{APP.tagline}</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -86,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {!collapsed && (
             <>
               <span className="flex-1 text-left">Поиск…</span>
-              <kbd className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] text-muted-2">⌘K</kbd>
+              <kbd className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[11px] text-muted-2">⌘K</kbd>
             </>
           )}
         </button>
@@ -156,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Контент */}
       <div className="flex min-w-0 flex-1 flex-col">
         {isDemoMode && (
-          <div className="flex items-center gap-2 border-b border-border/70 bg-[var(--warning)]/10 px-4 py-2 text-xs font-medium text-[var(--warning)] md:hidden">
+          <div className="flex items-center gap-2 border-b border-border/70 bg-[var(--warning)]/10 px-4 py-2 text-xs font-medium text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))] md:hidden">
             Демо-режим: данные в памяти. Настройте Supabase для реального хранения.
           </div>
         )}
@@ -185,7 +188,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold"
+              className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-semibold"
             >
               {active && (
                 <motion.span
@@ -206,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function DemoBadge() {
   return (
-    <div className="mt-1 rounded-[var(--r-sm)] border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-2 text-[11px] leading-snug text-[var(--warning)]">
+    <div className="mt-1 rounded-[var(--r-sm)] border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-2 text-[11px] leading-snug text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">
       Демо-режим: данные в памяти.
     </div>
   );

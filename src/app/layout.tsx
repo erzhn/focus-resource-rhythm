@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Manrope } from "next/font/google";
 import "./globals.css";
@@ -14,8 +14,16 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: APP.name,
+  // template подставляет заголовок раздела: «Календарь · Фокус — Ресурс — Ритм».
+  title: { default: APP.name, template: `%s · ${APP.name}` },
   description: APP.tagline,
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f1ea" },
+    { media: "(prefers-color-scheme: dark)", color: "#141519" },
+  ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

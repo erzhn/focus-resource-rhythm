@@ -35,7 +35,7 @@ export default function ResourcesPage() {
         subtitle="Время, силы и деньги: план, факт и лимиты."
       />
 
-      <RevealList className="grid gap-3 sm:grid-cols-3">
+      <RevealList className="grid gap-3 lg:grid-cols-3">
         <RevealItem>
           <ResourceCard
             title="Время (день)"
@@ -143,7 +143,7 @@ function ResourceCard({
           </span>
         </ProgressRing>
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-xl font-extrabold leading-tight">
+          <p className="flex items-center gap-1.5 truncate text-xl font-extrabold leading-tight">
             <Icon className="h-4 w-4 text-muted-2" />
             {main}
           </p>

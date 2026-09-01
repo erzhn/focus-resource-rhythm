@@ -66,7 +66,7 @@ export function DayTimeline({
           {hours.map((h) => (
             <div
               key={h}
-              className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-2"
+              className="absolute right-2 -translate-y-1/2 text-[11px] font-medium text-muted-2"
               style={{ top: yFor(h * 60) }}
             >
               {String(h).padStart(2, "0")}:00
@@ -88,7 +88,7 @@ export function DayTimeline({
             <div className="absolute inset-x-0 z-20 flex items-center" style={{ top: yFor(nowMinute) }} aria-hidden>
               <span className="-ml-1 h-2 w-2 rounded-full bg-[var(--attention)]" />
               <span className="h-px flex-1 bg-[var(--attention)]" />
-              <span className="rounded bg-[var(--attention)] px-1 text-[9px] font-bold text-white">
+              <span className="rounded bg-[var(--attention)] px-1 text-[11px] font-bold text-white">
                 {formatTime(now)}
               </span>
             </div>

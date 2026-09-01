@@ -16,14 +16,14 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-[var(--r-lg)] border border-border bg-surface p-6 shadow-soft-lg">
-        <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-primary">Вход</div>
+        <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">Вход</div>
         <h1 className="text-xl font-extrabold tracking-tight">{APP.name}</h1>
         <p className="mt-1 text-sm text-muted">{APP.tagline}</p>
 
         {isDemoMode && (
-          <div className="mt-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-3 text-xs text-[var(--warning)]">
+          <div className="mt-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-3 text-xs text-[color-mix(in_oklab,var(--warning)_58%,var(--foreground))]">
             Демо-режим: вход не требуется. Откройте приложение{" "}
-            <Link href="/" className="underline">
+            <Link href="/" className="inline-flex min-h-[24px] items-center underline">
               на главной
             </Link>
             . Авторизация включится после настройки Supabase.

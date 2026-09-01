@@ -90,7 +90,7 @@ function ResultRow({ r, accent }: { r: GoalTreeResult; accent: string }) {
         {r.nextActionTitle ? (
           <span className="truncate text-foreground">{r.nextActionTitle}</span>
         ) : (
-          <span className="text-[var(--attention)]">ближайшее действие не задано</span>
+          <span style={{ color: "color-mix(in oklab, var(--attention) 60%, var(--foreground))" }}>ближайшее действие не задано</span>
         )}
       </div>
 

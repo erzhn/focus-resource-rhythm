@@ -59,10 +59,15 @@ export default function TodayPage() {
       <Reveal>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="text-[0.7rem] font-bold uppercase tracking-[0.1em] text-primary">
+            {/* suppressHydrationWarning: сервер считает время в UTC, браузер — в локальной
+                зоне, поэтому дата и приветствие заведомо расходятся. Без этого React
+                выбрасывает серверную разметку и перерисовывает блок (ошибка #418). */}
+            <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-primary" suppressHydrationWarning>
               {WEEKDAYS[now.getDay()]}, {now.getDate()} {MONTHS[now.getMonth()]}
             </div>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl">{greeting(now)}</h1>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl" suppressHydrationWarning>
+              {greeting(now)}
+            </h1>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
               <Sparkles className="h-4 w-4 text-primary" /> {stateOfDay}
             </p>
@@ -111,7 +116,7 @@ export default function TodayPage() {
 
       {/* Лента дня + вторичные секции */}
       <div className="grid gap-5 lg:grid-cols-5">
-        <div className="space-y-5 lg:col-span-3">
+        <div className="min-w-0 space-y-5 lg:col-span-3">
           <Card>
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-muted" />
@@ -147,7 +152,7 @@ export default function TodayPage() {
           )}
         </div>
 
-        <div className="space-y-5 lg:col-span-2">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           {insights.length > 0 && (
             <Card>
               <CardTitle>Рекомендации</CardTitle>
@@ -240,7 +245,7 @@ function FocusTask({ task, explanation, score }: { task: DemoTask; explanation: 
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-primary">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
             <Star className="h-3.5 w-3.5" /> Главное дело дня
           </div>
           <h2 className={`mt-1.5 text-xl font-extrabold leading-snug md:text-2xl ${done ? "text-muted line-through" : ""}`}>
@@ -270,7 +275,7 @@ function FocusTask({ task, explanation, score }: { task: DemoTask; explanation: 
               <div className="text-xl font-extrabold" style={{ color: level }}>
                 <AnimatedNumber value={score} />
               </div>
-              <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-2">приоритет</div>
+              <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-2">приоритет</div>
             </div>
           </ProgressRing>
         </div>
@@ -281,7 +286,9 @@ function FocusTask({ task, explanation, score }: { task: DemoTask; explanation: 
 
 function EnergyMeter({ value, onChange }: { value: Scale1to5; onChange: (v: number) => void }) {
   const band = energyBand(value);
-  const color = band === "low" ? "var(--energy-low)" : band === "medium" ? "var(--energy-medium)" : "var(--energy-high)";
+  const base = band === "low" ? "var(--energy-low)" : band === "medium" ? "var(--energy-medium)" : "var(--energy-high)";
+  // Текст сдвигаем к цвету темы — иначе контраст на светлом фоне ниже 4.5:1.
+  const color = `color-mix(in oklab, ${base} 58%, var(--foreground))`;
   return (
     <div className="rounded-[var(--r)] border border-border bg-surface p-3.5">
       <div className="flex items-center justify-between">
