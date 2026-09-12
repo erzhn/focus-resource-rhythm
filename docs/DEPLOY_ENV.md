@@ -41,10 +41,30 @@
 
 ## Календари Google / Microsoft (необязательно)
 
-Нужны только для синхронизации календарей. Задать `GOOGLE_*` / `MICROSOFT_*` и
-**обновить redirect URI на боевой домен**:
-`https://<домен>/api/integrations/google/callback` (аналогично для microsoft).
-Webhook-синхронизация требует публичного HTTPS (`APP_BASE_URL`).
+Задать `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (аналогично `MICROSOFT_*`).
+
+**`GOOGLE_REDIRECT_URI` задавать не нужно** — адрес возврата вычисляется из
+`APP_BASE_URL`, а на Vercel и без него, из домена проекта. Раньше эту переменную
+забывали обновить при деплое, и прод уводил пользователя на `localhost`.
+
+Что **обязательно** сделать в консоли провайдера — добавить адрес возврата
+в список разрешённых:
+
+- Google Cloud Console → APIs & Services → Credentials → ваш OAuth client →
+  **Authorized redirect URIs** → `https://<домен>/api/integrations/google/callback`
+- Azure Portal → App registrations → Authentication → **Redirect URIs** →
+  `https://<домен>/api/integrations/microsoft/callback`
+
+Без этой записи провайдер ответит `redirect_uri_mismatch`.
+
+## Ограничение частоты запросов
+
+Работает на существующем Postgres — отдельный Redis не нужен. Требует применённой
+миграции `..._rate_limits.sql`. Лимиты: вход 20/15 мин на IP и 8/15 мин на email,
+регистрация 5 и 3, ассистент 30 запросов в час на пользователя.
+
+Если служебная таблица недоступна, запросы **пропускаются** (fail-open): сбой
+вспомогательной механики не должен закрывать вход настоящему пользователю.
 
 ## Генерация `TOKEN_ENCRYPTION_KEY`
 

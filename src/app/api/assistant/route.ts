@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { APP } from "@/config/app";
 import { resolveAssistantChain, streamWithFallback } from "@/lib/assistant/providers";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/env";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 /**
  * AI-ассистент. Работает на сервере: ключи не попадают в клиент и не логируются.
@@ -47,6 +50,18 @@ function systemPrompt(context: string | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Лимит на обращения к ИИ: бесплатные тарифы провайдеров быстро исчерпываются.
+  // Ключ — идентификатор пользователя, если он есть, иначе IP.
+  const subject = await assistantSubject();
+  const limit = await rateLimit("assistant", subject, 30, 3600);
+  if (!limit.allowed) {
+    const minutes = Math.ceil(limit.retryAfterSeconds / 60);
+    return NextResponse.json(
+      { error: `Слишком много запросов к ассистенту. Повторите через ${minutes} мин.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   const resolved = resolveAssistantChain();
   if (!resolved.ok) {
     return NextResponse.json({ error: resolved.reason }, { status: 503 });
@@ -94,4 +109,18 @@ export async function POST(req: NextRequest) {
       "X-Assistant-Chain": resolved.chain.map((c) => c.provider).join(","),
     },
   });
+}
+
+/** Субъект лимита: пользователь, если авторизован, иначе IP. */
+async function assistantSubject(): Promise<string> {
+  if (isSupabaseConfigured) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase.auth.getUser();
+      if (data.user) return `user:${data.user.id}`;
+    } catch {
+      // Падать из-за проверки лимита нельзя — используем IP.
+    }
+  }
+  return `ip:${await clientIp()}`;
 }

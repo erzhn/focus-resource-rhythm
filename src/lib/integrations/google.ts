@@ -8,6 +8,7 @@ import {
   type OAuthTokens,
   type UpsertEventInput,
 } from "./provider";
+import { resolveRedirectUri } from "./redirect-uri";
 
 /**
  * Адаптер Google Calendar (OAuth 2.0 + Events API + incremental sync по nextSyncToken).
@@ -25,8 +26,10 @@ const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 function config() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-  if (!clientId || !clientSecret || !redirectUri) {
+  // Адрес возврата выводится из окружения (см. redirect-uri.ts) — не требует
+  // ручной правки при смене домена.
+  const redirectUri = resolveRedirectUri("google");
+  if (!clientId || !clientSecret) {
     throw new IntegrationError("Не заданы ключи Google OAuth", "google");
   }
   return { clientId, clientSecret, redirectUri };

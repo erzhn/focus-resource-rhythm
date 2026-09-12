@@ -8,6 +8,7 @@ import {
   type OAuthTokens,
   type UpsertEventInput,
 } from "./provider";
+import { resolveRedirectUri } from "./redirect-uri";
 
 /**
  * Адаптер Microsoft Outlook (Graph, OAuth 2.0 + delta query + change notifications).
@@ -22,9 +23,11 @@ const SCOPES = ["offline_access", "Calendars.ReadWrite"];
 function config() {
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-  const redirectUri = process.env.MICROSOFT_REDIRECT_URI;
+  // Адрес возврата выводится из окружения (см. redirect-uri.ts) — не требует
+  // ручной правки при смене домена.
+  const redirectUri = resolveRedirectUri("microsoft");
   const tenant = process.env.MICROSOFT_TENANT_ID || "common";
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret) {
     throw new IntegrationError("Не заданы ключи Microsoft OAuth", "microsoft");
   }
   return { clientId, clientSecret, redirectUri, tenant };
