@@ -7,6 +7,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Пропускаем статику и изображения.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Пропускаем статику, изображения и публичные метафайлы.
+  //
+  // icon/apple-icon/manifest/robots обязаны отдаваться БЕЗ авторизации: иначе
+  // браузер не сможет установить приложение на домашний экран, а краулер —
+  // прочитать robots.txt (вместо файла они получали редирект на /login).
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|robots.txt|sitemap.xml|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
