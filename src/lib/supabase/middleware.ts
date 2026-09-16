@@ -31,7 +31,13 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/login") || path.startsWith("/api/integrations");
+  // keep-alive вызывается планировщиком без сессии: если увести его на /login,
+  // запрос до базы не дойдёт и проект всё равно уснёт. Свою авторизацию
+  // (CRON_SECRET) эндпоинт проверяет сам.
+  const isPublic =
+    path.startsWith("/login") ||
+    path.startsWith("/api/integrations") ||
+    path.startsWith("/api/keep-alive");
 
   // Неавторизованных отправляем на /login (кроме публичных путей).
   if (!user && !isPublic) {
