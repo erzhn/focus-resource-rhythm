@@ -37,3 +37,30 @@ describe("pickRedirectUri", () => {
     expect(pickRedirectUri(env, "microsoft")).toBe("https://app.example.com/api/integrations/microsoft/callback");
   });
 });
+
+// Отдельный класс ошибок: localhost, случайно попавший в переменные облака.
+describe("localhost в облаке игнорируется", () => {
+  const cloud = { VERCEL: "1", VERCEL_PROJECT_PRODUCTION_URL: "app.vercel.app" };
+
+  it("APP_BASE_URL=localhost не используется на Vercel", () => {
+    expect(pickBaseUrl({ ...cloud, APP_BASE_URL: "http://localhost:3000" })).toBe("https://app.vercel.app");
+  });
+
+  it("явный REDIRECT_URI на localhost тоже отбрасывается", () => {
+    expect(pickRedirectUri({ ...cloud, GOOGLE_REDIRECT_URI: "http://localhost:3000/api/integrations/google/callback" }, "google"))
+      .toBe("https://app.vercel.app/api/integrations/google/callback");
+  });
+
+  it("127.0.0.1 и ::1 тоже считаются локальными", () => {
+    expect(pickBaseUrl({ ...cloud, APP_BASE_URL: "http://127.0.0.1:3000" })).toBe("https://app.vercel.app");
+    expect(pickBaseUrl({ ...cloud, APP_BASE_URL: "http://[::1]:3000" })).toBe("https://app.vercel.app");
+  });
+
+  it("вне облака localhost остаётся рабочим значением", () => {
+    expect(pickBaseUrl({ APP_BASE_URL: "http://localhost:3000" })).toBe("http://localhost:3000");
+  });
+
+  it("боевой домен в APP_BASE_URL работает как прежде", () => {
+    expect(pickBaseUrl({ ...cloud, APP_BASE_URL: "https://my.app" })).toBe("https://my.app");
+  });
+});

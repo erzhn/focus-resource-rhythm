@@ -12,10 +12,23 @@ type Env = Record<string, string | undefined>;
 const stripSlash = (s: string) => s.replace(/\/+$/, "");
 const clean = (s: string | undefined) => s?.trim() || "";
 
+/** Адрес указывает на машину разработчика? */
+function isLocal(url: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(url);
+}
+
+/**
+ * В облаке localhost-адрес заведомо нерабочий: пользователя уведёт на его же
+ * машину. Такое значение попадает в переменные по недосмотру (скопировали
+ * пример для локальной разработки), поэтому в облаке его игнорируем.
+ */
+const isCloud = (env: Env) => Boolean(clean(env.VERCEL));
+const usable = (env: Env, url: string) => Boolean(url) && !(isCloud(env) && isLocal(url));
+
 /** Базовый URL приложения: APP_BASE_URL → продакшен-домен Vercel → домен деплоя → localhost. */
 export function pickBaseUrl(env: Env): string {
   const appBase = clean(env.APP_BASE_URL);
-  if (appBase) return stripSlash(appBase);
+  if (usable(env, appBase)) return stripSlash(appBase);
 
   // Стабильный продакшен-домен проекта (не меняется от деплоя к деплою).
   const prod = clean(env.VERCEL_PROJECT_PRODUCTION_URL);
@@ -29,8 +42,8 @@ export function pickBaseUrl(env: Env): string {
 }
 
 export function pickRedirectUri(env: Env, provider: ProviderName): string {
-  // Явно заданный адрес всегда побеждает — на случай нестандартной схемы.
+  // Явно заданный адрес побеждает — кроме localhost в облаке (см. usable).
   const explicit = clean(provider === "google" ? env.GOOGLE_REDIRECT_URI : env.MICROSOFT_REDIRECT_URI);
-  if (explicit) return explicit;
+  if (usable(env, explicit)) return explicit;
   return `${pickBaseUrl(env)}/api/integrations/${provider}/callback`;
 }
