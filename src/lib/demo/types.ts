@@ -1,3 +1,4 @@
+import type { CategoryId, TxKind } from "@/domain/finance/categories";
 import type { FocusZone } from "@/domain/focus";
 import type { DomainTask } from "@/domain/types";
 import type { RecurrenceRule } from "@/domain/recurrence";
@@ -58,6 +59,19 @@ export interface DemoPostponement {
 /** Решение по крупному результату на еженедельной сверке. */
 export type ResultDecision = "continue" | "change" | "postpone" | "pause" | "decline";
 
+/** Операция учёта денег. Суммы — в минорных единицах (тыйын). */
+export interface DemoTransaction {
+  id: string;
+  kind: TxKind;
+  amountMinor: number;
+  currency: string;
+  category: CategoryId | null;
+  description: string;
+  occurredAt: Date;
+  /** Финансовый день (граница 01:00), к которому отнесена операция. */
+  day: string;
+}
+
 export interface DemoState {
   lifeAreas: DemoLifeArea[];
   results: DemoResult[];
@@ -76,4 +90,11 @@ export interface DemoState {
   nextWeekResults: string[];
   /** Сохранённые решения недельной сверки по результатам. */
   weeklyDecisions: { resultId: string; decision: ResultDecision; reason: string }[];
+  /** Операции учёта денег. */
+  transactions: DemoTransaction[];
+  /** Начальный баланс в минорных единицах; null — не задан, не придумываем. */
+  openingBalanceMinor: number | null;
+  dailyBudgetMinor: number | null;
+  monthlyBudgetMinor: number | null;
+  mainCurrency: string;
 }

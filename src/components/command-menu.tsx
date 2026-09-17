@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   CalendarDays, CheckCircle2, CornerDownLeft, Home, ListChecks, MoonStar,
   Pencil, Plus, Search, Sparkles, Sunrise,
+  Wallet,
 } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { useQuickAdd } from "@/components/quick-add";
@@ -82,6 +83,7 @@ export function CommandMenu() {
       { id: "add", label: "Создать задачу", hint: "Быстрое добавление", icon: Plus, keywords: "новая task", description: "Открыть форму быстрого добавления задачи.", run: () => { close(); openQuickAdd(); } },
       { id: "today", label: "Перейти к «Сегодня»", icon: Home, keywords: "главная день", description: "Панель дня: главная задача, ресурсы, таймлайн.", run: () => go("/") },
       { id: "morning", label: "Начать утренний план", icon: Sunrise, keywords: "утро планирование день подтвердить", description: "Оценить силы и подтвердить план на день.", run: () => go("/") },
+      { id: "finance", label: "Записать расход", icon: Wallet, keywords: "деньги трата покупка доход бюджет", description: "Учёт расходов и доходов за финансовый день.", run: () => go("/finance") },
       { id: "plans", label: "Все планы и идеи", icon: ListChecks, keywords: "задачи входящие зоны", description: "Зоны фокуса и входящие задачи.", run: () => go("/plans") },
       { id: "calendar", label: "Открыть календарь", icon: CalendarDays, keywords: "день неделя месяц", description: "День, неделя, месяц и год в одной системе.", run: () => go("/calendar") },
       { id: "assistant", label: "Спросить ассистента", icon: Sparkles, keywords: "ai чат", description: "ИИ видит ваш контекст: планы, задачи, ресурсы.", run: () => go("/assistant") },

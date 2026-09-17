@@ -22,6 +22,10 @@ export class DemoDataProvider implements DataProvider {
   async createEvent(): Promise<void> {}
   async updateEvent(): Promise<void> {}
   async deleteEvent(): Promise<void> {}
+  async addTransaction(): Promise<void> {}
+  async updateTransaction(): Promise<void> {}
+  async deleteTransaction(): Promise<void> {}
+  async saveFinanceSettings(): Promise<void> {}
   async upsertCheckin(): Promise<void> {}
   async confirmDayPlan(): Promise<void> {}
   async addPostponement(): Promise<void> {}

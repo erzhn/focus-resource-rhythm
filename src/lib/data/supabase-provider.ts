@@ -11,6 +11,7 @@ import type {
   DemoState,
   DemoTask,
   ResultDecision,
+  DemoTransaction,
 } from "@/lib/demo/types";
 import type { Scale1to5, SchedulingMode, TaskStatus } from "@/domain/types";
 import type { DataProvider, OnboardingInput } from "./provider";
@@ -44,7 +45,7 @@ export class SupabaseDataProvider implements DataProvider {
     const state = createEmptyState();
     const sb = this.client;
 
-    const [areas, goals, projects, tasks, deps, events, settings, checkin, plan, postp, review, weekly] =
+    const [areas, goals, projects, tasks, deps, events, txs, settings, checkin, plan, postp, review, weekly] =
       await Promise.all([
         sb.from("life_areas").select("*").is("archived_at", null),
         sb.from("goals").select("*").is("archived_at", null),
@@ -52,6 +53,7 @@ export class SupabaseDataProvider implements DataProvider {
         sb.from("tasks").select("*").is("archived_at", null).order("created_at", { ascending: false }),
         sb.from("task_dependencies").select("task_id, depends_on_task_id"),
         sb.from("personal_events").select("*"),
+        sb.from("transactions").select("*").order("occurred_at", { ascending: false }).limit(2000),
         sb.from("user_settings").select("*").maybeSingle(),
         sb.from("daily_checkins").select("*").eq("checkin_date", iso(now)).maybeSingle(),
         sb.from("daily_plans").select("*").eq("plan_date", iso(now)).maybeSingle(),
@@ -135,10 +137,29 @@ export class SupabaseDataProvider implements DataProvider {
       blocksAvailability: Boolean(e.blocks_availability),
     }));
 
+    state.transactions = ((txs.data as Row[]) ?? []).map((t) => ({
+      id: t.id as string,
+      kind: t.kind as DemoTransaction["kind"],
+      amountMinor: Number(t.amount_minor),
+      currency: (t.currency as string) ?? "KGS",
+      category: (t.category as DemoTransaction["category"]) ?? null,
+      description: (t.description as string) ?? "",
+      occurredAt: new Date(t.occurred_at as string),
+      day: String(t.financial_day),
+    }));
+
     if (settings.data) {
-      state.reserveRatio = Number((settings.data as Row).time_reserve_ratio ?? 0.25);
-      const limit = (settings.data as Row).daily_money_limit;
+      const row = settings.data as Row;
+      state.reserveRatio = Number(row.time_reserve_ratio ?? 0.25);
+      const limit = row.daily_money_limit;
       state.dailyMoneyLimitMajor = limit == null ? null : Number(limit);
+
+      // Настройки учёта денег. null означает «не задано» и таким и остаётся.
+      const num = (v: unknown) => (v == null ? null : Number(v));
+      state.openingBalanceMinor = num(row.opening_balance_minor);
+      state.dailyBudgetMinor = num(row.daily_budget_minor);
+      state.monthlyBudgetMinor = num(row.monthly_budget_minor);
+      state.mainCurrency = (row.main_currency as string) ?? "KGS";
     }
     if (checkin.data) {
       const c = checkin.data as Row;
@@ -324,6 +345,60 @@ export class SupabaseDataProvider implements DataProvider {
       { user_id, review_date: iso(date), conclusion },
       { onConflict: "user_id,review_date" },
     );
+    if (error) throw error;
+  }
+
+  async addTransaction(tx: DemoTransaction): Promise<void> {
+    const user_id = await this.userId();
+    const { error } = await this.client.from("transactions").insert({
+      id: tx.id,
+      user_id,
+      kind: tx.kind,
+      amount_minor: tx.amountMinor,
+      currency: tx.currency,
+      category: tx.category,
+      description: tx.description,
+      occurred_at: tx.occurredAt.toISOString(),
+      financial_day: tx.day,
+    });
+    if (error) throw error;
+  }
+
+  async updateTransaction(
+    id: string,
+    patch: Partial<Omit<DemoTransaction, "id">>,
+  ): Promise<void> {
+    const row: Record<string, unknown> = {};
+    if (patch.kind !== undefined) row.kind = patch.kind;
+    if (patch.amountMinor !== undefined) row.amount_minor = patch.amountMinor;
+    if (patch.currency !== undefined) row.currency = patch.currency;
+    if (patch.category !== undefined) row.category = patch.category;
+    if (patch.description !== undefined) row.description = patch.description;
+    if (patch.occurredAt !== undefined) row.occurred_at = patch.occurredAt.toISOString();
+    if (patch.day !== undefined) row.financial_day = patch.day;
+    if (Object.keys(row).length === 0) return;
+
+    const { error } = await this.client.from("transactions").update(row).eq("id", id);
+    if (error) throw error;
+  }
+
+  async deleteTransaction(id: string): Promise<void> {
+    const { error } = await this.client.from("transactions").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async saveFinanceSettings(patch: {
+    openingBalanceMinor?: number | null;
+    dailyBudgetMinor?: number | null;
+    monthlyBudgetMinor?: number | null;
+  }): Promise<void> {
+    const user_id = await this.userId();
+    const row: Record<string, unknown> = { user_id };
+    if (patch.openingBalanceMinor !== undefined) row.opening_balance_minor = patch.openingBalanceMinor;
+    if (patch.dailyBudgetMinor !== undefined) row.daily_budget_minor = patch.dailyBudgetMinor;
+    if (patch.monthlyBudgetMinor !== undefined) row.monthly_budget_minor = patch.monthlyBudgetMinor;
+
+    const { error } = await this.client.from("user_settings").upsert(row, { onConflict: "user_id" });
     if (error) throw error;
   }
 

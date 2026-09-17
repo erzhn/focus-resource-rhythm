@@ -7,6 +7,7 @@ import {
   Settings,
   Sparkles,
   Target,
+  Gauge,
   Wallet,
   ClipboardCheck,
   type LucideIcon,
@@ -24,11 +25,12 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Сегодня", short: "Сегодня", icon: Home, primary: true },
-  { href: "/assistant", label: "Ассистент", short: "Ассистент", icon: Sparkles, primary: true },
+  { href: "/assistant", label: "Ассистент", short: "Ассистент", icon: Sparkles },
   { href: "/plans", label: "Все планы", short: "Планы", icon: ListChecks, primary: true },
-  { href: "/goals", label: "Цели и проекты", short: "Цели", icon: Target, primary: true },
+  { href: "/goals", label: "Цели и проекты", short: "Цели", icon: Target },
   { href: "/calendar", label: "Календарь", short: "Календарь", icon: CalendarDays, primary: true },
-  { href: "/resources", label: "Ресурсы", icon: Wallet },
+  { href: "/finance", label: "Деньги", short: "Деньги", icon: Wallet, primary: true },
+  { href: "/resources", label: "Ресурсы", icon: Gauge },
   { href: "/stats", label: "Статистика", icon: BarChart3 },
   { href: "/reviews", label: "Сверки", icon: ClipboardCheck },
   { href: "/notifications", label: "Уведомления", icon: Bell },

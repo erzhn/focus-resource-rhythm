@@ -14,8 +14,16 @@ import { buildDayPlan, type DayPlanDraft } from "@/domain/planning/dayPlan";
 import { calculatePriority, resolvePriority, type PriorityContext } from "@/domain/priority";
 import { createsDependencyCycle } from "@/domain/tasks/dependencies";
 import type { DayResources, DomainTask } from "@/domain/types";
+import { financialDayOf } from "@/domain/finance/day";
 import { createEmptyState, createSeedState } from "./seed";
-import type { DemoEvent, DemoState, DemoTask, ResultDecision } from "./types";
+import type {
+  DemoEvent,
+  DemoState,
+  DemoTask,
+  DemoTransaction,
+  ResultDecision,
+} from "./types";
+import type { CategoryId, TxKind } from "@/domain/finance/categories";
 import type { TaskStatus } from "@/domain/types";
 import { isSupabaseConfigured } from "@/lib/env";
 import type { DataProvider, OnboardingInput } from "@/lib/data/provider";
@@ -59,6 +67,25 @@ interface StoreValue {
   addEvent: (event: Omit<DemoEvent, "id">) => void;
   updateEvent: (id: string, patch: Partial<Omit<DemoEvent, "id">>) => void;
   deleteEvent: (id: string) => void;
+
+  /** Учёт денег. Возвращает id созданной операции. */
+  addTransaction: (input: {
+    kind: TxKind;
+    amountMinor: number;
+    currency?: string;
+    category?: CategoryId | null;
+    description: string;
+    occurredAt?: Date;
+  }) => string;
+  updateTransaction: (id: string, patch: Partial<Omit<DemoTransaction, "id">>) => void;
+  deleteTransaction: (id: string) => void;
+  setFinanceSettings: (patch: {
+    openingBalanceMinor?: number | null;
+    dailyBudgetMinor?: number | null;
+    monthlyBudgetMinor?: number | null;
+  }) => void;
+  /** Текущий финансовый день (граница 01:00). */
+  financialToday: string;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -257,6 +284,59 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       return { ok: true, message: "Зона обновлена." };
     },
     [persist, state.results],
+  );
+
+  const addTransaction = useCallback<StoreValue["addTransaction"]>(
+    (input) => {
+      const occurredAt = input.occurredAt ?? new Date();
+      const tx: DemoTransaction = {
+        id: nextId(),
+        kind: input.kind,
+        amountMinor: input.amountMinor,
+        currency: input.currency ?? "KGS",
+        // Категория только у расходов: у дохода и возврата её нет по смыслу.
+        category: input.kind === "expense" ? (input.category ?? "other") : null,
+        description: input.description,
+        occurredAt,
+        day: financialDayOf(occurredAt),
+      };
+      setState((s) => ({ ...s, transactions: [tx, ...s.transactions] }));
+      persist((p) => p.addTransaction(tx));
+      return tx.id;
+    },
+    [persist],
+  );
+
+  const updateTransaction = useCallback<StoreValue["updateTransaction"]>(
+    (id, patch) => {
+      // Если сдвинули время — финансовый день пересчитывается вместе с ним.
+      const withDay =
+        patch.occurredAt !== undefined && patch.day === undefined
+          ? { ...patch, day: financialDayOf(patch.occurredAt) }
+          : patch;
+      setState((s) => ({
+        ...s,
+        transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...withDay } : t)),
+      }));
+      persist((p) => p.updateTransaction(id, withDay));
+    },
+    [persist],
+  );
+
+  const deleteTransaction = useCallback<StoreValue["deleteTransaction"]>(
+    (id) => {
+      setState((s) => ({ ...s, transactions: s.transactions.filter((t) => t.id !== id) }));
+      persist((p) => p.deleteTransaction(id));
+    },
+    [persist],
+  );
+
+  const setFinanceSettings = useCallback<StoreValue["setFinanceSettings"]>(
+    (patch) => {
+      setState((s) => ({ ...s, ...patch }));
+      persist((p) => p.saveFinanceSettings(patch));
+    },
+    [persist],
   );
 
   const confirmDayPlan = useCallback(() => {
@@ -497,6 +577,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [persist, now],
   );
 
+  const financialToday = financialDayOf(now);
+
   const value: StoreValue = {
     state,
     now,
@@ -528,6 +610,11 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     addEvent,
     updateEvent,
     deleteEvent,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    setFinanceSettings,
+    financialToday,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

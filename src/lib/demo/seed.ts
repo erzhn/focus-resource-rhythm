@@ -1,3 +1,4 @@
+import { financialDayOf } from "@/domain/finance/day";
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
 import type { DemoEvent, DemoResult, DemoState, DemoTask } from "./types";
 
@@ -18,10 +19,40 @@ export function createEmptyState(): DemoState {
     eveningConclusion: null,
     nextWeekResults: [],
     weeklyDecisions: [],
+    transactions: [],
+    openingBalanceMinor: null,
+    dailyBudgetMinor: null,
+    monthlyBudgetMinor: null,
+    mainCurrency: "KGS",
   };
 }
 
 /** Реалистичные русскоязычные демо-данные для локального просмотра. */
+/** Несколько операций за сегодня — чтобы экран «Деньги» не выглядел пустым в демо. */
+function demoTransactions(now: Date): DemoState["transactions"] {
+  const at = (h: number, m: number) => {
+    const d = new Date(now);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+  const day = financialDayOf(now);
+  const mk = (
+    id: string,
+    kind: DemoState["transactions"][number]["kind"],
+    amountMinor: number,
+    category: DemoState["transactions"][number]["category"],
+    description: string,
+    occurredAt: Date,
+  ) => ({ id, kind, amountMinor, currency: "KGS", category, description, occurredAt, day });
+
+  return [
+    mk("tx-1", "expense", 18_000, "food", "Кофе и завтрак", at(9, 15)),
+    mk("tx-2", "expense", 25_000, "transport", "Такси до офиса", at(9, 40)),
+    mk("tx-3", "expense", 45_000, "food", "Обед", at(13, 20)),
+    mk("tx-4", "expense", 150_000, "shopping", "Футболка", at(17, 5)),
+  ];
+}
+
 export function createSeedState(now: Date = new Date()): DemoState {
   const today = startOfDay(now);
   const at = (h: number, m: number, dayOffset = 0) =>
@@ -244,5 +275,10 @@ export function createSeedState(now: Date = new Date()): DemoState {
     eveningConclusion: null,
     nextWeekResults: [],
     weeklyDecisions: [],
+    transactions: demoTransactions(now),
+    openingBalanceMinor: 2_500_000,
+    dailyBudgetMinor: 300_000,
+    monthlyBudgetMinor: null,
+    mainCurrency: "KGS",
   };
 }

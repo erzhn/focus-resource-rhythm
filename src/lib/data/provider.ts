@@ -1,5 +1,5 @@
 import type { FocusZone } from "@/domain/focus";
-import type { DemoEvent, DemoPostponement, DemoState, DemoTask, ResultDecision } from "@/lib/demo/types";
+import type { DemoEvent, DemoPostponement, DemoState, DemoTask, ResultDecision, DemoTransaction } from "@/lib/demo/types";
 
 /**
  * Абстракция источника данных. Экраны через стор работают с провайдером, не зная,
@@ -47,6 +47,17 @@ export interface DataProvider {
   confirmDayPlan(date: Date): Promise<void>;
   addPostponement(p: DemoPostponement): Promise<void>;
   saveEveningReview(date: Date, conclusion: string): Promise<void>;
+  /** Операции учёта денег. */
+  addTransaction(tx: DemoTransaction): Promise<void>;
+  updateTransaction(id: string, patch: Partial<Omit<DemoTransaction, "id">>): Promise<void>;
+  deleteTransaction(id: string): Promise<void>;
+  /** Начальный баланс и бюджеты. Поля необязательные — задаются по мере надобности. */
+  saveFinanceSettings(patch: {
+    openingBalanceMinor?: number | null;
+    dailyBudgetMinor?: number | null;
+    monthlyBudgetMinor?: number | null;
+  }): Promise<void>;
+
   saveWeeklyReview(
     weekStart: Date,
     nextWeekResults: string[],
