@@ -20,14 +20,20 @@ export interface Category {
   emoji: string;
   /** CSS-переменная цвета. */
   color: string;
-  /** Слова для автоопределения; сопоставляются по началу слова. */
+  /** Слова для автоопределения; сопоставляются по НАЧАЛУ слова («такси» → «таксист»). */
   keywords: string[];
+  /**
+   * Короткие неоднозначные слова, которые обязаны совпасть ЦЕЛИКОМ.
+   * «клуб» по началу ловил «клубнику», «бар» — «барбекю», «сок» — «сокращение».
+   */
+  exactKeywords?: string[];
 }
 
 export const CATEGORIES: Category[] = [
   {
     id: "food", label: "Еда и напитки", icon: "UtensilsCrossed", emoji: "🍔", color: "var(--attention)",
-    keywords: ["еда", "обед", "ужин", "завтрак", "кафе", "ресторан", "кофе", "чай", "продукт", "магазин", "супермаркет", "доставка", "перекус", "пицц", "шаурма", "самса", "лепешк", "вода", "сок", "напит", "столов", "булочн", "пекарн", "мороженое", "фрукт", "овощ", "мясо", "хлеб", "молоко", "яйц", "бургер"],
+    keywords: ["еда", "обед", "ужин", "завтрак", "кафе", "ресторан", "кофе", "чай", "продукт", "магазин", "супермаркет", "доставка", "перекус", "пицц", "шаурма", "самса", "лепешк", "напит", "столов", "булочн", "пекарн", "мороженое", "фрукт", "овощ", "мясо", "хлеб", "молоко", "яйц", "бургер", "шоколад", "клубник", "ягод", "конфет", "торт", "десерт", "печенье", "выпечк", "сладост", "вино", "игрист", "пиво", "барбекю", "шашлык", "мангал", "гриль"],
+    exactKeywords: ["вода", "сок", "соки"],
   },
   {
     id: "transport", label: "Транспорт", icon: "Car", emoji: "🚕", color: "var(--zone-next)",
@@ -35,11 +41,13 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: "shopping", label: "Покупки", icon: "ShoppingBag", emoji: "🛍️", color: "var(--primary)",
-    keywords: ["одежд", "обув", "футболк", "джинс", "куртк", "рубашк", "кроссовк", "носк", "сумк", "аксессуар", "часы", "очки", "парфюм", "космети"],
+    keywords: ["одежд", "обув", "футболк", "джинс", "куртк", "рубашк", "кроссовк", "носк", "сумк", "аксессуар", "парфюм", "космети"],
+    exactKeywords: ["часы", "очки"],
   },
   {
     id: "fun", label: "Развлечения", icon: "Gamepad2", emoji: "🎮", color: "var(--zone-later)",
-    keywords: ["игр", "кино", "театр", "концерт", "боулинг", "бильярд", "клуб", "бар", "развлеч", "мероприят", "steam", "playstation", "xbox", "аттракцион", "караоке"],
+    keywords: ["кино", "театр", "концерт", "боулинг", "бильярд", "развлеч", "мероприят", "steam", "playstation", "xbox", "аттракцион", "караоке", "игра", "игры", "игру", "игров"],
+    exactKeywords: ["клуб", "клубе", "бар", "баре"],
   },
   {
     id: "connectivity", label: "Связь и подписки", icon: "Wifi", emoji: "📱", color: "var(--zone-next)",
@@ -51,11 +59,13 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: "home", label: "Дом", icon: "Home", emoji: "🏠", color: "var(--resource)",
-    keywords: ["дом", "квартир", "аренд", "коммунал", "свет", "газ", "уборк", "ремонт", "мебел", "посуд", "порошок", "мыло", "полотенц"],
+    keywords: ["дом", "квартир", "аренд", "коммунал", "уборк", "ремонт", "мебел", "посуд", "порошок", "мыло", "полотенц", "светильник"],
+    exactKeywords: ["свет", "газ", "электричество"],
   },
   {
     id: "tech", label: "Техника", icon: "Laptop", emoji: "💻", color: "var(--primary)",
     keywords: ["техник", "ноутбук", "компьютер", "монитор", "клавиатур", "мышк", "телефон", "наушник", "зарядк", "кабел", "флешк", "принтер", "электроник", "комплектующ"],
+    exactKeywords: ["мышь", "мыши"],
   },
   {
     id: "finance", label: "Финансы", icon: "Landmark", emoji: "💰", color: "var(--zone-declined)",
@@ -114,6 +124,12 @@ function hasKeyword(text: string, keywords: string[]): boolean {
   });
 }
 
+/** Совпадение слова целиком: «клуб» не должен находиться в «клубнике». */
+function hasExactWord(text: string, keywords: string[]): boolean {
+  const words = norm(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return keywords.some((k) => words.includes(norm(k)));
+}
+
 /** Тип операции по описанию. Возврат проверяем раньше дохода. */
 export function detectKind(description: string): TxKind {
   if (hasKeyword(description, REFUND_KEYWORDS)) return "refund";
@@ -128,6 +144,7 @@ export function detectKind(description: string): TxKind {
 export function detectCategory(description: string): CategoryId | null {
   for (const c of CATEGORIES) {
     if (c.keywords.length > 0 && hasKeyword(description, c.keywords)) return c.id;
+    if (c.exactKeywords?.length && hasExactWord(description, c.exactKeywords)) return c.id;
   }
   return null;
 }
