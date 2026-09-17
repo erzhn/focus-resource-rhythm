@@ -37,7 +37,10 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/api/integrations") ||
-    path.startsWith("/api/keep-alive");
+    path.startsWith("/api/keep-alive") ||
+    // Вебхук Telegram приходит без сессии — свою подлинность он проверяет
+    // секретным заголовком. Редирект на /login сломал бы бота.
+    path.startsWith("/api/telegram");
 
   // Неавторизованных отправляем на /login (кроме публичных путей).
   if (!user && !isPublic) {

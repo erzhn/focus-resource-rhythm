@@ -6,6 +6,8 @@ import { Card, CardTitle } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/ui/page-header";
 import { RevealList, RevealItem } from "@/components/ui/reveal";
 import { useStore } from "@/lib/demo/store";
+import { FinanceSettings } from "@/components/finance/finance-settings";
+import { TelegramCard } from "@/components/finance/telegram-card";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -52,6 +54,14 @@ export default function SettingsPage() {
           <Row label="Начало недели" value="Понедельник" />
         </div>
       </Card>
+      </RevealItem>
+
+      <RevealItem>
+        <FinanceSettings />
+      </RevealItem>
+
+      <RevealItem>
+        <TelegramCard botName={process.env.NEXT_PUBLIC_TELEGRAM_BOT_NAME ?? null} />
       </RevealItem>
 
       <RevealItem>

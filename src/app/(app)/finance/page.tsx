@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownRight, ArrowUpRight, Trash2, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download, Trash2, Wallet } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardTitle, EmptyState } from "@/components/ui/primitives";
+import { Button, Card, CardTitle, EmptyState } from "@/components/ui/primitives";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Reveal, RevealList, RevealItem } from "@/components/ui/reveal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
@@ -16,6 +16,7 @@ import { formatFinancialDay, shiftFinancialDay } from "@/domain/finance/day";
 import { budgetStatus, computeBalance, summarizeDay, summarizeMonth } from "@/domain/finance/stats";
 import { currencyLabel, formatMinor, formatMinorShort } from "@/domain/finance/format";
 import { CATEGORY_BY_ID } from "@/domain/finance/categories";
+import { csvFileName, toCsv } from "@/domain/finance/export";
 import type { DemoTransaction } from "@/lib/demo/types";
 
 export default function FinancePage() {
@@ -69,6 +70,18 @@ export default function FinancePage() {
     );
   };
 
+  /** Выгрузка всех операций: страховка на случай, если данные понадобятся вне приложения. */
+  const exportCsv = () => {
+    const csv = toCsv(txs);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = csvFileName(txs);
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Выгружено операций: ${txs.length}`);
+  };
+
   return (
     <div>
       <PageHeader
@@ -99,6 +112,9 @@ export default function FinancePage() {
             >
               Завтра →
             </button>
+            <Button size="sm" variant="ghost" onClick={exportCsv} disabled={txs.length === 0}>
+              <Download className="h-4 w-4" /> CSV
+            </Button>
           </div>
         }
       />
@@ -243,6 +259,61 @@ export default function FinancePage() {
                 </div>
               ))}
             </div>
+          </Card>
+        </Reveal>
+      )}
+
+      {/* Месяц целиком */}
+      {month.byCategory.length > 0 && (
+        <Reveal className="mt-4">
+          <Card>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <CardTitle>Месяц по категориям</CardTitle>
+              <span className="text-xs text-muted-2">
+                расходы {formatMinor(month.expensesMinor, currency)}
+                {month.incomeMinor > 0 && ` · доходы ${formatMinor(month.incomeMinor, currency)}`}
+              </span>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {month.byCategory.map((c) => (
+                <div key={c.category}>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CategoryIcon category={c.category} className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                    <span className="text-[11px] text-muted-2">
+                      {c.count} {c.count === 1 ? "операция" : "опер."}
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {formatMinor(c.amountMinor, currency)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
+                    <motion.div
+                      className="h-full w-full origin-left rounded-full"
+                      style={{ backgroundColor: categoryFill(c.category) }}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: c.share }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {month.incomeMinor > 0 && (
+              <p className="mt-4 border-t border-border pt-3 text-sm">
+                Разница доходов и расходов:{" "}
+                <span
+                  className={`font-bold ${
+                    month.incomeMinor >= month.expensesMinor
+                      ? "text-[var(--resource)]"
+                      : "text-[color-mix(in_oklab,var(--attention)_58%,var(--foreground))]"
+                  }`}
+                >
+                  {month.incomeMinor >= month.expensesMinor ? "+" : "−"}
+                  {formatMinor(Math.abs(month.incomeMinor - month.expensesMinor), currency)}
+                </span>
+              </p>
+            )}
           </Card>
         </Reveal>
       )}

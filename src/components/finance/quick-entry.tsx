@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CornerDownLeft, Plus, TriangleAlert } from "lucide-react";
 import { parseEntries, type ParsedEntry } from "@/domain/finance/parse";
+import { learnCategories, suggestCategory } from "@/domain/finance/learn";
+import { useStore } from "@/lib/demo/store";
 import { CATEGORIES, type CategoryId } from "@/domain/finance/categories";
 import { formatMinor } from "@/domain/finance/format";
 import { Button } from "@/components/ui/primitives";
@@ -30,11 +32,39 @@ export function QuickEntry({
 }: {
   onSubmit: (entries: (ParsedEntry & { category: CategoryId | null })[]) => void;
 }) {
+  const { state } = useStore();
   const [text, setText] = useState("");
   const [manual, setManual] = useState<Record<number, CategoryId>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { entries, unparsed } = useMemo(() => parseEntries(text), [text]);
+  // Словарь «описание → категория» из прошлых решений пользователя:
+  // встроенные ключевые слова не знают про местные магазины.
+  const learned = useMemo(
+    () =>
+      learnCategories(
+        state.transactions
+          .filter((t) => t.kind === "expense" && t.category)
+          .map((t) => ({
+            description: t.description,
+            category: t.category as CategoryId,
+            occurredAt: new Date(t.occurredAt),
+          })),
+      ),
+    [state.transactions],
+  );
+
+  const { entries, unparsed } = useMemo(() => {
+    const r = parseEntries(text);
+    return {
+      ...r,
+      // История важнее словаря: пользователь уже показал, куда относить покупку.
+      entries: r.entries.map((e) =>
+        e.kind === "expense" && !e.category
+          ? { ...e, category: suggestCategory(e.description, learned) }
+          : e,
+      ),
+    };
+  }, [text, learned]);
 
   // Строки расходов без категории — их нужно уточнить перед сохранением.
   const needsCategory = entries
