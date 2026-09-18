@@ -15,14 +15,16 @@ import { currencyLabel, parseAmountToMinor } from "@/domain/finance/format";
  * внутрь уходят минорные.
  */
 export function FinanceSettings() {
-  const { state, setFinanceSettings } = useStore();
+  const { state, setFinanceSettings, moneyLimitMinor } = useStore();
   const toast = useToast();
   const currency = state.mainCurrency ?? "KGS";
 
   const toInput = (minor: number | null) => (minor === null ? "" : String(minor / 100));
 
   const [balance, setBalance] = useState(() => toInput(state.openingBalanceMinor));
-  const [daily, setDaily] = useState(() => toInput(state.dailyBudgetMinor));
+  // Показываем ДЕЙСТВУЮЩИЙ лимит, а не только новое поле: иначе у профиля со
+  // старым лимитом из онбординга поле выглядело пустым, хотя бюджет работал.
+  const [daily, setDaily] = useState(() => toInput(moneyLimitMinor));
   const [monthly, setMonthly] = useState(() => toInput(state.monthlyBudgetMinor));
   const [error, setError] = useState<string | null>(null);
 

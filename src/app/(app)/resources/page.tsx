@@ -13,17 +13,21 @@ import { formatMinutes, formatMoney } from "@/lib/format";
 import type { Scale1to5 } from "@/domain/types";
 
 export default function ResourcesPage() {
-  const { state, dayPlan } = useStore();
+  const { state, dayPlan, todaySpentMinor, moneyLimitMinor } = useStore();
 
+  // План по задачам и фактические траты — разные величины. Раньше карточка
+  // «Деньги» показывала план, но подписана была как расход, и число не
+  // совпадало с разделом «Деньги».
   const plannedMoney = state.tasks.reduce((s, t) => s + t.plannedMoneyMinor, 0) / 100;
-  const moneyCheck = checkLimit(plannedMoney, state.dailyMoneyLimitMajor, "сом");
+  const moneyLimitMajor = moneyLimitMinor === null ? null : moneyLimitMinor / 100;
+  const moneyCheck = checkLimit(todaySpentMinor / 100, moneyLimitMajor, "сом");
   const timeCheck = checkLimit(dayPlan.plannedMinutes, dayPlan.plannableMinutes, "мин");
 
   const r = resourceRatios({
     plannedMinutes: dayPlan.plannedMinutes,
     plannableMinutes: dayPlan.plannableMinutes,
-    plannedMoney,
-    moneyLimit: state.dailyMoneyLimitMajor,
+    plannedMoney: todaySpentMinor / 100,
+    moneyLimit: moneyLimitMajor,
     energy: state.morningEnergy,
   });
 
@@ -50,13 +54,13 @@ export default function ResourcesPage() {
         </RevealItem>
         <RevealItem>
           <ResourceCard
-            title="Деньги (день)"
+            title="Деньги: факт за день"
             icon={Wallet}
             ratio={r.money?.ratio ?? 0}
             over={r.money?.over ?? false}
             accent="var(--resource)"
-            main={formatMoney(plannedMoney)}
-            detail={`лимит ${state.dailyMoneyLimitMajor === null ? "—" : formatMoney(state.dailyMoneyLimitMajor)}`}
+            main={formatMoney(todaySpentMinor / 100)}
+            detail={`бюджет ${moneyLimitMajor === null ? "не задан" : formatMoney(moneyLimitMajor)} · план по задачам ${formatMoney(plannedMoney)}`}
             warning={moneyCheck.message}
             disabled={r.money === null}
           />

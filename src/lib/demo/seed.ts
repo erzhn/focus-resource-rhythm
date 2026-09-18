@@ -1,4 +1,4 @@
-import { financialDayOf } from "@/domain/finance/day";
+import { financialDayOf, financialDayRange } from "@/domain/finance/day";
 import { addDays, setHours, setMinutes, startOfDay } from "date-fns";
 import type { DemoEvent, DemoResult, DemoState, DemoTask } from "./types";
 
@@ -30,12 +30,12 @@ export function createEmptyState(): DemoState {
 /** Реалистичные русскоязычные демо-данные для локального просмотра. */
 /** Несколько операций за сегодня — чтобы экран «Деньги» не выглядел пустым в демо. */
 function demoTransactions(now: Date): DemoState["transactions"] {
-  const at = (h: number, m: number) => {
-    const d = new Date(now);
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
-  const day = financialDayOf(now);
+  // Время отсчитываем от НАЧАЛА финансового дня (абсолютный момент), а не через
+  // setHours: тот работает в локальной зоне, которая у сервера и браузера разная —
+  // из-за этого операции попадали в разные дни и ломалась гидратация.
+  const dayStart = financialDayRange(financialDayOf(now)).start.getTime();
+  const at = (hoursFromDayStart: number, minutes = 0) =>
+    new Date(dayStart + (hoursFromDayStart * 60 + minutes) * 60_000);
   const mk = (
     id: string,
     kind: DemoState["transactions"][number]["kind"],
@@ -43,13 +43,14 @@ function demoTransactions(now: Date): DemoState["transactions"] {
     category: DemoState["transactions"][number]["category"],
     description: string,
     occurredAt: Date,
-  ) => ({ id, kind, amountMinor, currency: "KGS", category, description, occurredAt, day });
+    // День выводим из времени самой операции, иначе он может с ним разойтись.
+  ) => ({ id, kind, amountMinor, currency: "KGS", category, description, occurredAt, day: financialDayOf(occurredAt) });
 
   return [
-    mk("tx-1", "expense", 18_000, "food", "Кофе и завтрак", at(9, 15)),
-    mk("tx-2", "expense", 25_000, "transport", "Такси до офиса", at(9, 40)),
-    mk("tx-3", "expense", 45_000, "food", "Обед", at(13, 20)),
-    mk("tx-4", "expense", 150_000, "shopping", "Футболка", at(17, 5)),
+    mk("tx-1", "expense", 18_000, "food", "Кофе и завтрак", at(8, 15)),
+    mk("tx-2", "expense", 25_000, "transport", "Такси до офиса", at(8, 40)),
+    mk("tx-3", "expense", 45_000, "food", "Обед", at(12, 20)),
+    mk("tx-4", "expense", 150_000, "shopping", "Футболка", at(16, 5)),
   ];
 }
 

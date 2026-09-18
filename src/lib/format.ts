@@ -1,3 +1,4 @@
+import { formatMinor } from "@/domain/finance/format";
 import { format } from "date-fns";
 import { REGIONAL_DEFAULTS } from "@/config/app";
 
@@ -26,11 +27,10 @@ export function formatMinutes(min: number): string {
 
 /** Деньги (в основной валюте) с символом валюты. */
 export function formatMoney(amount: number, currency = REGIONAL_DEFAULTS.currency): string {
-  return new Intl.NumberFormat("ru-RU", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  // Делегируем в общий форматтер учёта денег: раньше Intl со style:"currency"
+  // печатал ISO-код («2 380 KGS»), а раздел «Деньги» — «2 380 сом». Одна и та же
+  // сумма выглядела по-разному на соседних экранах.
+  return formatMinor(Math.round(amount * 100), currency);
 }
 
 /** Минорные единицы (тыйын) → основная валюта. */

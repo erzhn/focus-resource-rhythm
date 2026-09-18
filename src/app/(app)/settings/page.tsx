@@ -69,10 +69,8 @@ export default function SettingsPage() {
         <CardTitle>Лимиты и резерв</CardTitle>
         <div className="mt-2">
           <Row label="Резерв времени" value={`${Math.round(state.reserveRatio * 100)}% (20–30%)`} />
-          <Row
-            label="Дневной денежный лимит"
-            value={state.dailyMoneyLimitMajor === null ? "—" : `${state.dailyMoneyLimitMajor} сом`}
-          />
+          {/* Денежный лимит переехал в «Учёт денег» выше: раньше их было два —
+              здесь и там, с разными значениями и единицами. */}
         </div>
         <label className="mt-3 block text-xs text-muted">
           Доступное время в день (мин)

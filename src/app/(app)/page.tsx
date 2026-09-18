@@ -15,7 +15,8 @@ import { ResourceMeter } from "@/components/ui/resource-meter";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Reveal, RevealItem, RevealList } from "@/components/ui/reveal";
 import { ENERGY_BAND_LABELS, energyBand } from "@/domain/resources";
-import { formatDate, formatMinutes, formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatMinutes, formatTime } from "@/lib/format";
+import { formatMinor } from "@/domain/finance/format";
 import { greeting } from "@/lib/ui/text";
 import type { Scale1to5 } from "@/domain/types";
 import type { DemoTask } from "@/lib/demo/types";
@@ -24,7 +25,8 @@ const WEEKDAYS = ["воскресенье", "понедельник", "втор�
 const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
 
 export default function TodayPage() {
-  const { state, now, dayPlan, confirmDayPlan, setMorningEnergy, focusResults } = useStore();
+  const store = useStore();
+  const { state, now, dayPlan, confirmDayPlan, setMorningEnergy, focusResults } = store;
   const byId = (id: string) => state.tasks.find((t) => t.id === id)!;
 
   const activeResults = state.results.filter((r) => r.zone === "now");
@@ -34,8 +36,9 @@ export default function TodayPage() {
   const overdue = state.tasks.filter(
     (t) => t.dueDate && differenceInCalendarDays(now, t.dueDate) > 0 && t.status !== "done",
   );
-  const moneyLimit = state.dailyMoneyLimitMajor;
-  const plannedMoney = state.tasks.reduce((s, t) => s + t.plannedMoneyMinor, 0) / 100;
+  // Раньше здесь показывался ПЛАН по задачам, а пользователь ждал фактических
+  // трат — числа расходились с разделом «Деньги». Теперь берём факт из стора.
+  const { todaySpentMinor, moneyLimitMinor } = store;
 
   const stateOfDay = state.dayPlanConfirmed
     ? "План подтверждён — двигайтесь по ритму."
@@ -108,8 +111,12 @@ export default function TodayPage() {
             icon={Coins}
             label="Деньги"
             color="var(--resource)"
-            value={moneyLimit ? Math.min(1, plannedMoney / moneyLimit) : 0}
-            detail={moneyLimit === null ? "Лимит не задан" : `${formatMoney(plannedMoney)} из ${formatMoney(moneyLimit)}`}
+            value={moneyLimitMinor ? Math.min(1, todaySpentMinor / moneyLimitMinor) : 0}
+            detail={
+              moneyLimitMinor === null
+                ? `Потрачено ${formatMinor(todaySpentMinor)} · бюджет не задан`
+                : `${formatMinor(todaySpentMinor)} из ${formatMinor(moneyLimitMinor)}`
+            }
           />
         </RevealItem>
       </RevealList>

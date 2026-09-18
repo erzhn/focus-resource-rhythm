@@ -86,6 +86,10 @@ interface StoreValue {
   }) => void;
   /** Текущий финансовый день (граница 01:00). */
   financialToday: string;
+  /** Фактические расходы за сегодня — единое число для всех экранов. */
+  todaySpentMinor: number;
+  /** Дневной лимит денег, единый источник истины (бюджет учёта или старый лимит). */
+  moneyLimitMinor: number | null;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -134,15 +138,27 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [provider],
   );
 
+  /**
+   * Дневной денежный лимит — ОДИН на всё приложение.
+   *
+   * Исторически их было два: dailyMoneyLimitMajor из онбординга (в сомах) и
+   * dailyBudgetMinor из настроек учёта (в тыйынах). Разные экраны читали разные
+   * поля, и числа не сходились. Новый бюджет главнее; старый остаётся запасным,
+   * чтобы уже заполненные профили не потеряли значение.
+   */
+  const moneyLimitMinor = useMemo(() => {
+    if (state.dailyBudgetMinor !== null) return state.dailyBudgetMinor;
+    return state.dailyMoneyLimitMajor === null ? null : state.dailyMoneyLimitMajor * 100;
+  }, [state.dailyBudgetMinor, state.dailyMoneyLimitMajor]);
+
   const resources: DayResources = useMemo(
     () => ({
       availableMinutes: state.availableMinutes,
       energyLevel: state.morningEnergy as DayResources["energyLevel"],
-      moneyLimitMinor:
-        state.dailyMoneyLimitMajor === null ? null : state.dailyMoneyLimitMajor * 100,
+      moneyLimitMinor,
       reserveRatio: state.reserveRatio,
     }),
-    [state.availableMinutes, state.morningEnergy, state.dailyMoneyLimitMajor, state.reserveRatio],
+    [state.availableMinutes, state.morningEnergy, moneyLimitMinor, state.reserveRatio],
   );
 
   const completedTaskIds = useMemo(
@@ -577,7 +593,19 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     [persist, now],
   );
 
-  const financialToday = financialDayOf(now);
+  // Считаем от ТЕКУЩЕГО момента, а не от замороженного now: иначе у вкладки,
+  // открытой с вечера, после 01:00 «сегодня» остаётся вчерашним, и новые записи
+  // уходят в новый день, а экран показывает старый.
+  const financialToday = financialDayOf(new Date());
+
+  /** Фактические расходы за текущий финансовый день, в минорных единицах. */
+  const todaySpentMinor = useMemo(
+    () =>
+      state.transactions
+        .filter((t) => t.day === financialToday && t.kind === "expense" && t.currency === (state.mainCurrency ?? "KGS"))
+        .reduce((sum, t) => sum + t.amountMinor, 0),
+    [state.transactions, financialToday, state.mainCurrency],
+  );
 
   const value: StoreValue = {
     state,
@@ -615,6 +643,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     deleteTransaction,
     setFinanceSettings,
     financialToday,
+    todaySpentMinor,
+    moneyLimitMinor,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

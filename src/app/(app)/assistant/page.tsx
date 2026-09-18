@@ -40,7 +40,9 @@ export default function AssistantPage() {
       `Дата: ${formatDate(now)}. План дня: ${state.dayPlanConfirmed ? "подтверждён" : "черновик"}.`,
       `Уровень сил: ${ENERGY_BAND_LABELS[energyBand(state.morningEnergy as Scale1to5)]} (${state.morningEnergy}/5).`,
       `Доступное время: ${formatMinutes(state.availableMinutes)}, резерв ${Math.round(state.reserveRatio * 100)}%.`,
-      state.dailyMoneyLimitMajor !== null ? `Дневной денежный лимит: ${formatMoney(state.dailyMoneyLimitMajor)}.` : "",
+      store.moneyLimitMinor !== null
+        ? `Деньги сегодня: потрачено ${formatMoney(store.todaySpentMinor / 100)} из ${formatMoney(store.moneyLimitMinor / 100)}.`
+        : `Потрачено сегодня: ${formatMoney(store.todaySpentMinor / 100)} (бюджет не задан).`,
       `Главное дело: ${dayPlan.main ? dayPlan.main.task.title : "не выбрано"}.`,
       dayPlan.secondary.length
         ? `Дополнительные: ${dayPlan.secondary.map((p) => p.task.title).join("; ")}.`
