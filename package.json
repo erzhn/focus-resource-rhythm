@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "telegram:setup": "node scripts/telegram-setup.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

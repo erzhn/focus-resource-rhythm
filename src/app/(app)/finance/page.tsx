@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownRight, ArrowUpRight, Download, Trash2, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Download, Repeat, Trash2, Wallet } from "lucide-react";
 import { useStore } from "@/lib/demo/store";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Card, CardTitle, EmptyState } from "@/components/ui/primitives";
@@ -15,6 +16,7 @@ import { TransactionEdit } from "@/components/finance/transaction-edit";
 import { CategoryIcon, categoryFill } from "@/components/finance/category-icon";
 import { formatFinancialDay, shiftFinancialDay, toLocalInput } from "@/domain/finance/day";
 import { budgetStatus, computeBalance, summarizeDay, summarizeMonth } from "@/domain/finance/stats";
+import { upcomingThisMonth } from "@/domain/finance/recurring";
 import { currencyLabel, formatMinor, formatMinorShort } from "@/domain/finance/format";
 import { CATEGORY_BY_ID } from "@/domain/finance/categories";
 import { csvFileName, toCsv } from "@/domain/finance/export";
@@ -49,6 +51,11 @@ export default function FinancePage() {
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
 
   const isToday = day === financialToday;
+
+  const recurringUpcoming = useMemo(
+    () => upcomingThisMonth(state.recurring, financialToday, currency),
+    [state.recurring, financialToday, currency],
+  );
 
   // Ищем во всех операциях, а не в dayTxs: правка времени может увести запись
   // в соседний день, и диалог не должен исчезать на полуслове.
@@ -139,6 +146,12 @@ export default function FinancePage() {
             >
               Завтра →
             </button>
+            <Link
+              href="/finance/recurring"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-medium text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+            >
+              <Repeat className="h-3.5 w-3.5" /> Регулярные
+            </Link>
             <Button size="sm" variant="ghost" onClick={exportCsv} disabled={txs.length === 0}>
               <Download className="h-4 w-4" /> CSV
             </Button>
@@ -257,6 +270,25 @@ export default function FinancePage() {
           </Card>
         </RevealItem>
       </RevealList>
+
+      {/* Что уже обещано: без этого «осталось на день» выглядит оптимистичнее, чем есть */}
+      {recurringUpcoming.upcoming.length > 0 && (
+        <Reveal className="mt-3">
+          <Link
+            href="/finance/recurring"
+            className="flex items-center gap-2.5 rounded-[var(--r)] border border-border/70 bg-surface px-3.5 py-3 text-sm shadow-soft transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+          >
+            <Repeat className="h-4 w-4 shrink-0 text-muted-2" />
+            <span className="min-w-0 flex-1">
+              Ещё предстоит по регулярным платежам в этом месяце —{" "}
+              <span className="font-bold">{formatMinor(recurringUpcoming.totalMinor, currency)}</span>
+            </span>
+            <span className="shrink-0 text-[11px] text-muted-2">
+              ближайший {formatFinancialDay(recurringUpcoming.upcoming[0].day)}
+            </span>
+          </Link>
+        </Reveal>
+      )}
 
       {/* Категории */}
       {today.byCategory.length > 0 && (

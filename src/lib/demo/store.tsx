@@ -16,6 +16,7 @@ import { createsDependencyCycle } from "@/domain/tasks/dependencies";
 import type { DayResources, DomainTask } from "@/domain/types";
 import { financialDayOf } from "@/domain/finance/day";
 import { effectiveDailyBudgetMinor } from "@/domain/finance/stats";
+import type { RecurringExpense } from "@/domain/finance/recurring";
 import { createEmptyState, createSeedState } from "./seed";
 import type {
   DemoEvent,
@@ -91,6 +92,13 @@ interface StoreValue {
   todaySpentMinor: number;
   /** Дневной лимит денег, единый источник истины (бюджет учёта или старый лимит). */
   moneyLimitMinor: number | null;
+
+  /** Регулярные платежи. */
+  addRecurring: (input: Omit<RecurringExpense, "id">) => string;
+  updateRecurring: (id: string, patch: Partial<Omit<RecurringExpense, "id">>) => void;
+  deleteRecurring: (id: string) => void;
+  /** Сопоставить категорию трат со сферой жизни; null — убрать сопоставление. */
+  setCategoryArea: (category: CategoryId, areaId: string | null) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -337,6 +345,49 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (id) => {
       setState((s) => ({ ...s, transactions: s.transactions.filter((t) => t.id !== id) }));
       persist((p) => p.deleteTransaction(id));
+    },
+    [persist],
+  );
+
+  const addRecurring = useCallback<StoreValue["addRecurring"]>(
+    (input) => {
+      const item: RecurringExpense = { ...input, id: nextId() };
+      setState((s) => ({ ...s, recurring: [...s.recurring, item] }));
+      persist((p) => p.addRecurring(item));
+      return item.id;
+    },
+    [persist],
+  );
+
+  const updateRecurring = useCallback<StoreValue["updateRecurring"]>(
+    (id, patch) => {
+      setState((s) => ({
+        ...s,
+        recurring: s.recurring.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+      }));
+      persist((p) => p.updateRecurring(id, patch));
+    },
+    [persist],
+  );
+
+  const deleteRecurring = useCallback<StoreValue["deleteRecurring"]>(
+    (id) => {
+      setState((s) => ({ ...s, recurring: s.recurring.filter((r) => r.id !== id) }));
+      persist((p) => p.deleteRecurring(id));
+    },
+    [persist],
+  );
+
+  const setCategoryArea = useCallback<StoreValue["setCategoryArea"]>(
+    (category, areaId) => {
+      setState((s) => {
+        const next = { ...s.categoryAreas };
+        // Отсутствие ключа и есть «не сопоставлено» — пустую строку не храним.
+        if (areaId === null) delete next[category];
+        else next[category] = areaId;
+        return { ...s, categoryAreas: next };
+      });
+      persist((p) => p.setCategoryArea(category, areaId));
     },
     [persist],
   );
@@ -639,6 +690,10 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     financialToday,
     todaySpentMinor,
     moneyLimitMinor,
+    addRecurring,
+    updateRecurring,
+    deleteRecurring,
+    setCategoryArea,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

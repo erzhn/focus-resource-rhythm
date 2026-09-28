@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { RevealList, RevealItem } from "@/components/ui/reveal";
 import { useStore } from "@/lib/demo/store";
 import { FinanceSettings } from "@/components/finance/finance-settings";
+import { CategoryAreasCard } from "@/components/finance/category-areas";
 import { TelegramCard } from "@/components/finance/telegram-card";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -58,6 +59,10 @@ export default function SettingsPage() {
 
       <RevealItem>
         <FinanceSettings />
+      </RevealItem>
+
+      <RevealItem>
+        <CategoryAreasCard />
       </RevealItem>
 
       <RevealItem>

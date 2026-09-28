@@ -2,6 +2,8 @@ import type { CategoryId, TxKind } from "@/domain/finance/categories";
 import type { FocusZone } from "@/domain/focus";
 import type { DomainTask } from "@/domain/types";
 import type { RecurrenceRule } from "@/domain/recurrence";
+import type { RecurringExpense } from "@/domain/finance/recurring";
+import type { CategoryAreas } from "@/domain/finance/spheres";
 
 /** Сфера жизни (демо). */
 export interface DemoLifeArea {
@@ -95,6 +97,10 @@ export interface DemoState {
   /** Начальный баланс в минорных единицах; null — не задан, не придумываем. */
   openingBalanceMinor: number | null;
   dailyBudgetMinor: number | null;
+  /** Регулярные обязательные платежи: аренда, подписки, интернет. */
+  recurring: RecurringExpense[];
+  /** Категория трат → сфера жизни. Пусто — разрез по сферам просто не строится. */
+  categoryAreas: CategoryAreas;
   monthlyBudgetMinor: number | null;
   mainCurrency: string;
 }

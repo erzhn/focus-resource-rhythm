@@ -53,9 +53,17 @@ export function TelegramCard({ botName }: { botName: string | null }) {
         <code className="rounded bg-surface-2 px-1">/today</code>.
       </p>
 
+      {!botName && (
+        // Без имени бота привязка ведёт в никуда: код будет некому отправить.
+        <p className="mt-3 rounded-[var(--r-sm)] bg-surface-2 p-3 text-xs text-muted">
+          Бот ещё не подключён к этому приложению. Нужно создать бота у @BotFather и задать
+          переменные окружения — порядок шагов в <code>docs/TELEGRAM_BOT.md</code>.
+        </p>
+      )}
+
       {!code ? (
         <div className="mt-4">
-          <Button size="sm" onClick={generate} disabled={busy}>
+          <Button size="sm" onClick={generate} disabled={busy || !botName}>
             {busy ? "Создаю…" : "Получить код привязки"}
           </Button>
         </div>

@@ -1,5 +1,7 @@
 import type { FocusZone } from "@/domain/focus";
 import type { DemoEvent, DemoPostponement, DemoState, DemoTask, ResultDecision, DemoTransaction } from "@/lib/demo/types";
+import type { RecurringExpense } from "@/domain/finance/recurring";
+import type { CategoryId } from "@/domain/finance/categories";
 
 /**
  * Абстракция источника данных. Экраны через стор работают с провайдером, не зная,
@@ -57,6 +59,13 @@ export interface DataProvider {
     dailyBudgetMinor?: number | null;
     monthlyBudgetMinor?: number | null;
   }): Promise<void>;
+
+  /** Регулярные платежи. */
+  addRecurring(item: RecurringExpense): Promise<void>;
+  updateRecurring(id: string, patch: Partial<Omit<RecurringExpense, "id">>): Promise<void>;
+  deleteRecurring(id: string): Promise<void>;
+  /** Сопоставление категории со сферой жизни; null — убрать сопоставление. */
+  setCategoryArea(category: CategoryId, areaId: string | null): Promise<void>;
 
   saveWeeklyReview(
     weekStart: Date,

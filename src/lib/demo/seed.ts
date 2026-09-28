@@ -24,6 +24,9 @@ export function createEmptyState(): DemoState {
     dailyBudgetMinor: null,
     monthlyBudgetMinor: null,
     mainCurrency: "KGS",
+    recurring: [],
+    // Сопоставление категорий со сферами не угадываем: у каждого свои сферы.
+    categoryAreas: {},
   };
 }
 
@@ -281,5 +284,19 @@ export function createSeedState(now: Date = new Date()): DemoState {
     dailyBudgetMinor: 300_000,
     monthlyBudgetMinor: null,
     mainCurrency: "KGS",
+    recurring: [
+      { id: "rc-rent", title: "Аренда квартиры", amountMinor: 3_500_000, currency: "KGS", category: "home", dayOfMonth: 5, active: true },
+      { id: "rc-net", title: "Интернет", amountMinor: 120_000, currency: "KGS", category: "connectivity", dayOfMonth: 10, active: true },
+      { id: "rc-gym", title: "Абонемент в зал", amountMinor: 250_000, currency: "KGS", category: "health", dayOfMonth: 20, active: true },
+    ],
+    categoryAreas: {
+      food: "la-health",
+      health: "la-health",
+      transport: "la-work",
+      connectivity: "la-work",
+      education: "la-growth",
+      home: "la-family",
+      gifts: "la-family",
+    },
   };
 }

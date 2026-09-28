@@ -14,6 +14,8 @@ import type {
   DemoTransaction,
 } from "@/lib/demo/types";
 import type { Scale1to5, SchedulingMode, TaskStatus } from "@/domain/types";
+import type { RecurringExpense } from "@/domain/finance/recurring";
+import type { CategoryId } from "@/domain/finance/categories";
 import type { DataProvider, OnboardingInput } from "./provider";
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
@@ -61,6 +63,11 @@ export class SupabaseDataProvider implements DataProvider {
         sb.from("daily_reviews").select("*").eq("review_date", iso(now)).maybeSingle(),
         sb.from("weekly_reviews").select("*").order("week_start", { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+    const [recurring, catAreas] = await Promise.all([
+      sb.from("recurring_expenses").select("*").order("day_of_month"),
+      sb.from("category_life_areas").select("category, life_area_id"),
+    ]);
 
     state.lifeAreas = (areas.data ?? []).map(
       (a: Row): DemoLifeArea => ({ id: String(a.id), name: String(a.name), color: String(a.color ?? "#888") }),
@@ -147,6 +154,20 @@ export class SupabaseDataProvider implements DataProvider {
       occurredAt: new Date(t.occurred_at as string),
       day: String(t.financial_day),
     }));
+
+    state.recurring = ((recurring.data as Row[]) ?? []).map((r) => ({
+      id: String(r.id),
+      title: String(r.title),
+      amountMinor: Number(r.amount_minor),
+      currency: (r.currency as string) ?? "KGS",
+      category: r.category as RecurringExpense["category"],
+      dayOfMonth: Number(r.day_of_month),
+      active: Boolean(r.active),
+    }));
+
+    state.categoryAreas = Object.fromEntries(
+      ((catAreas.data as Row[]) ?? []).map((r) => [String(r.category), String(r.life_area_id)]),
+    ) as DemoState["categoryAreas"];
 
     if (settings.data) {
       const row = settings.data as Row;
@@ -384,6 +405,60 @@ export class SupabaseDataProvider implements DataProvider {
 
   async deleteTransaction(id: string): Promise<void> {
     const { error } = await this.client.from("transactions").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async addRecurring(item: RecurringExpense): Promise<void> {
+    const user_id = await this.userId();
+    const { error } = await this.client.from("recurring_expenses").insert({
+      id: item.id,
+      user_id,
+      title: item.title,
+      amount_minor: item.amountMinor,
+      currency: item.currency,
+      category: item.category,
+      day_of_month: item.dayOfMonth,
+      active: item.active,
+    });
+    if (error) throw error;
+  }
+
+  async updateRecurring(
+    id: string,
+    patch: Partial<Omit<RecurringExpense, "id">>,
+  ): Promise<void> {
+    const row: Record<string, unknown> = {};
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.amountMinor !== undefined) row.amount_minor = patch.amountMinor;
+    if (patch.currency !== undefined) row.currency = patch.currency;
+    if (patch.category !== undefined) row.category = patch.category;
+    if (patch.dayOfMonth !== undefined) row.day_of_month = patch.dayOfMonth;
+    if (patch.active !== undefined) row.active = patch.active;
+    if (Object.keys(row).length === 0) return;
+
+    const { error } = await this.client.from("recurring_expenses").update(row).eq("id", id);
+    if (error) throw error;
+  }
+
+  async deleteRecurring(id: string): Promise<void> {
+    const { error } = await this.client.from("recurring_expenses").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async setCategoryArea(category: CategoryId, areaId: string | null): Promise<void> {
+    const user_id = await this.userId();
+    if (areaId === null) {
+      const { error } = await this.client
+        .from("category_life_areas")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("category", category);
+      if (error) throw error;
+      return;
+    }
+    const { error } = await this.client
+      .from("category_life_areas")
+      .upsert({ user_id, category, life_area_id: areaId }, { onConflict: "user_id,category" });
     if (error) throw error;
   }
 
