@@ -11,8 +11,9 @@ import { Reveal, RevealList, RevealItem } from "@/components/ui/reveal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { useToast } from "@/components/ui/toast";
 import { QuickEntry } from "@/components/finance/quick-entry";
+import { TransactionEdit } from "@/components/finance/transaction-edit";
 import { CategoryIcon, categoryFill } from "@/components/finance/category-icon";
-import { formatFinancialDay, shiftFinancialDay } from "@/domain/finance/day";
+import { formatFinancialDay, shiftFinancialDay, toLocalInput } from "@/domain/finance/day";
 import { budgetStatus, computeBalance, summarizeDay, summarizeMonth } from "@/domain/finance/stats";
 import { currencyLabel, formatMinor, formatMinorShort } from "@/domain/finance/format";
 import { CATEGORY_BY_ID } from "@/domain/finance/categories";
@@ -21,9 +22,11 @@ import type { DemoTransaction } from "@/lib/demo/types";
 
 export default function FinancePage() {
   const store = useStore();
-  const { state, financialToday, addTransaction, deleteTransaction } = store;
+  const { state, financialToday, moneyLimitMinor, addTransaction, updateTransaction, deleteTransaction } =
+    store;
   const toast = useToast();
   const [day, setDay] = useState(financialToday);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const currency = state.mainCurrency ?? "KGS";
   const txs = useMemo(
@@ -34,7 +37,10 @@ export default function FinancePage() {
 
   const today = useMemo(() => summarizeDay(txs, day, currency), [txs, day, currency]);
   const month = useMemo(() => summarizeMonth(txs, day, currency), [txs, day, currency]);
-  const dayBudget = budgetStatus(today.expensesMinor, state.dailyBudgetMinor);
+  // Дневной лимит берём из общего источника истины, а не из state.dailyBudgetMinor:
+  // у профиля со старым лимитом из онбординга здесь было «бюджет не задан»,
+  // хотя «Ресурсы» и «Сегодня» тот же лимит показывали.
+  const dayBudget = budgetStatus(today.expensesMinor, moneyLimitMinor);
   const monthBudget = budgetStatus(month.expensesMinor, state.monthlyBudgetMinor);
   const balance = computeBalance(txs, state.openingBalanceMinor, currency);
 
@@ -43,6 +49,27 @@ export default function FinancePage() {
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
 
   const isToday = day === financialToday;
+
+  // Ищем во всех операциях, а не в dayTxs: правка времени может увести запись
+  // в соседний день, и диалог не должен исчезать на полуслове.
+  const editing = txs.find((t) => t.id === editingId) ?? null;
+
+  const saveEdit = (patch: Partial<Omit<DemoTransaction, "id">>) => {
+    if (!editing) return;
+    updateTransaction(editing.id, patch);
+    setEditingId(null);
+    toast.success(
+      patch.day && patch.day !== editing.day
+        ? `Изменено и перенесено на ${formatFinancialDay(patch.day)}`
+        : "Операция изменена",
+    );
+  };
+
+  const removeTx = (tx: DemoTransaction) => {
+    deleteTransaction(tx.id);
+    setEditingId(null);
+    toast.info(`Удалено: ${tx.description}`);
+  };
 
   const handleAdd = (
     entries: {
@@ -337,10 +364,8 @@ export default function FinancePage() {
                   <TxRow
                     tx={t}
                     currency={currency}
-                    onDelete={() => {
-                      deleteTransaction(t.id);
-                      toast.info(`Удалено: ${t.description}`);
-                    }}
+                    onEdit={() => setEditingId(t.id)}
+                    onDelete={() => removeTx(t)}
                   />
                 </RevealItem>
               ))}
@@ -348,6 +373,18 @@ export default function FinancePage() {
           </RevealList>
         )}
       </section>
+
+      {/* Без AnimatePresence: у диалога нет exit-анимации, как и у остальных
+          модальных окон приложения — обёртка бы ничего не делала. */}
+      {editing && (
+        <TransactionEdit
+          key={editing.id}
+          tx={editing}
+          onSave={saveEdit}
+          onDelete={() => removeTx(editing)}
+          onClose={() => setEditingId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -355,21 +392,30 @@ export default function FinancePage() {
 function TxRow({
   tx,
   currency,
+  onEdit,
   onDelete,
 }: {
   tx: DemoTransaction;
   currency: string;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const isExpense = tx.kind === "expense";
   const meta = tx.category ? CATEGORY_BY_ID.get(tx.category) : null;
-  const time = new Date(tx.occurredAt).toLocaleTimeString("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Время показываем в зоне учёта (UTC+6), а не в зоне машины: иначе оно
+  // расходилось бы с финансовым днём и с полем правки, а на сервере при
+  // отрисовке отличалось бы от браузера.
+  const time = toLocalInput(new Date(tx.occurredAt)).slice(11);
 
   return (
-    <div className="group flex items-center gap-3 rounded-[var(--r)] border border-border/70 bg-surface p-3.5 shadow-soft">
+    <div className="group flex items-center gap-1 rounded-[var(--r)] border border-border/70 bg-surface p-3.5 shadow-soft">
+      {/* Вся строка — кнопка правки: на телефоне попасть в неё проще, чем в иконку. */}
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Изменить операцию: ${tx.description}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+      >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2">
         {tx.category ? (
           <CategoryIcon category={tx.category} className="h-4 w-4" />
@@ -398,8 +444,10 @@ function TxRow({
         {isExpense ? "−" : "+"}
         {formatMinor(tx.amountMinor, tx.currency || currency)}
       </span>
+      </button>
 
       <button
+        type="button"
         onClick={onDelete}
         aria-label={`Удалить операцию: ${tx.description}`}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-2 opacity-0 transition-opacity hover:bg-surface-2 hover:text-[var(--danger)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] group-hover:opacity-100 md:opacity-0"

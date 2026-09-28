@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetStatus, computeBalance, summarizeDay, summarizeMonth, type Transaction } from "./stats";
+import { budgetStatus, computeBalance, effectiveDailyBudgetMinor, summarizeDay, summarizeMonth, type Transaction } from "./stats";
 
 let seq = 0;
 const tx = (
@@ -122,5 +122,20 @@ describe("computeBalance", () => {
 
   it("чужая валюта не влияет на баланс основной", () => {
     expect(computeBalance([tx(DAY, 50, "expense", "tech", "USD")], 100_000)).toBe(100_000);
+  });
+});
+
+describe("действующий дневной лимит", () => {
+  it("новый бюджет главнее старого лимита из онбординга", () => {
+    expect(effectiveDailyBudgetMinor(250_000, 3000)).toBe(250_000);
+  });
+  it("без нового бюджета берёт старый лимит и переводит в минорные единицы", () => {
+    expect(effectiveDailyBudgetMinor(null, 3000)).toBe(300_000);
+  });
+  it("ноль — это заданный лимит, а не отсутствие лимита", () => {
+    expect(effectiveDailyBudgetMinor(0, 3000)).toBe(0);
+  });
+  it("не придумывает лимит, когда не задан ни один", () => {
+    expect(effectiveDailyBudgetMinor(null, null)).toBeNull();
   });
 });

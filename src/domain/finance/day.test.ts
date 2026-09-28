@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   financialDayOf, financialDayRange, formatFinancialDay,
-  lastFinancialDays, monthOf, shiftFinancialDay,
+  fromLocalInput, lastFinancialDays, monthOf, shiftFinancialDay, toLocalInput,
 } from "./day";
 
 /** Момент по бишкекскому времени (UTC+6) в виде абсолютной даты. */
@@ -68,5 +68,34 @@ describe("вспомогательные", () => {
   });
   it("lastFinancialDays возвращает дни по возрастанию, включая сегодня", () => {
     expect(lastFinancialDays("2026-09-16", 3)).toEqual(["2026-09-14", "2026-09-15", "2026-09-16"]);
+  });
+});
+
+describe("поля ввода даты и времени", () => {
+  it("показывает момент по времени учёта, а не по зоне машины", () => {
+    // 2026-09-26 14:30 в Бишкеке = 08:30 UTC.
+    expect(toLocalInput(new Date("2026-09-26T08:30:00Z"))).toBe("2026-09-26T14:30");
+  });
+
+  it("разбирает строку обратно в тот же момент", () => {
+    const at = new Date("2026-09-26T08:30:00Z");
+    expect(fromLocalInput(toLocalInput(at))!.getTime()).toBe(at.getTime());
+  });
+
+  it("00:30 остаётся в прошедшем финансовом дне", () => {
+    const at = fromLocalInput("2026-09-27T00:30")!;
+    expect(financialDayOf(at)).toBe("2026-09-26");
+  });
+
+  it("01:00 уже начинает новый день", () => {
+    expect(financialDayOf(fromLocalInput("2026-09-27T01:00")!)).toBe("2026-09-27");
+  });
+
+  it("отвергает мусор и несуществующие даты", () => {
+    expect(fromLocalInput("")).toBeNull();
+    expect(fromLocalInput("26.09.2026 14:30")).toBeNull();
+    expect(fromLocalInput("2026-02-31T10:00")).toBeNull();
+    expect(fromLocalInput("2026-13-01T10:00")).toBeNull();
+    expect(fromLocalInput("2026-09-26T25:00")).toBeNull();
   });
 });

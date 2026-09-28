@@ -79,3 +79,34 @@ export function monthOf(day: FinancialDay): string {
 export function lastFinancialDays(today: FinancialDay, count: number): FinancialDay[] {
   return Array.from({ length: count }, (_, i) => shiftFinancialDay(today, i - (count - 1)));
 }
+
+/**
+ * Момент → значение для `<input type="datetime-local">` во времени учёта.
+ *
+ * Считаем в том же фиксированном UTC+6, что и финансовый день, а не в зоне
+ * браузера: иначе у пользователя в другой зоне правка времени незаметно
+ * перебрасывала бы операцию в соседний день.
+ */
+export function toLocalInput(instant: Date, offsetMinutes: number = TZ_OFFSET_MINUTES): string {
+  const l = toLocal(instant, offsetMinutes);
+  return (
+    `${l.getUTCFullYear()}-${pad(l.getUTCMonth() + 1)}-${pad(l.getUTCDate())}` +
+    `T${pad(l.getUTCHours())}:${pad(l.getUTCMinutes())}`
+  );
+}
+
+/**
+ * Обратно: «2026-09-26T14:30» во времени учёта → абсолютный момент.
+ * null — строка не разобралась или описывает несуществующую дату (31 февраля).
+ */
+export function fromLocalInput(value: string, offsetMinutes: number = TZ_OFFSET_MINUTES): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  const local = Date.UTC(y, mo - 1, d, h, mi);
+  // Date.UTC молча нормализует 31 февраля в 3 марта — такую дату не принимаем.
+  const back = new Date(local);
+  if (back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
+  return new Date(local - offsetMinutes * MS_PER_MINUTE);
+}

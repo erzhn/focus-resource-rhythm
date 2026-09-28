@@ -146,6 +146,22 @@ export interface BudgetStatus {
   overByMinor: number;
 }
 
+/**
+ * Действующий дневной лимит в минорных единицах.
+ *
+ * Лимитов исторически два: `daily_budget_minor` из настроек учёта (в тыйынах)
+ * и `daily_money_limit` из онбординга (в сомах). Экраны читали разные поля, и
+ * числа не сходились. Правило одно на всё приложение: новый бюджет главнее,
+ * старый остаётся запасным.
+ */
+export function effectiveDailyBudgetMinor(
+  dailyBudgetMinor: number | null,
+  dailyMoneyLimitMajor: number | null,
+): number | null {
+  if (dailyBudgetMinor !== null) return dailyBudgetMinor;
+  return dailyMoneyLimitMajor === null ? null : Math.round(dailyMoneyLimitMajor * 100);
+}
+
 /** Состояние бюджета. Возвращает null, если лимит не задан. */
 export function budgetStatus(spentMinor: number, limitMinor: number | null): BudgetStatus | null {
   if (limitMinor === null || limitMinor <= 0) return null;

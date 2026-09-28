@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseUrl } from "@/lib/env";
 import { financialDayOf } from "@/domain/finance/day";
 import { detectCategory, CATEGORY_BY_ID, type CategoryId } from "@/domain/finance/categories";
-import { budgetStatus, summarizeDay, summarizeMonth, type Transaction } from "@/domain/finance/stats";
+import { budgetStatus, effectiveDailyBudgetMinor, summarizeDay, summarizeMonth, type Transaction } from "@/domain/finance/stats";
 import { computeBalance } from "@/domain/finance/stats";
 import { confirmation, dailyReport } from "@/domain/finance/report";
 import { HELP_TEXT, parseBotMessage } from "@/domain/finance/telegram";
@@ -154,14 +154,19 @@ async function loadTransactions(
 async function loadSettings(sb: ReturnType<typeof admin>, userId: string) {
   const { data } = await sb
     .from("user_settings")
-    .select("opening_balance_minor, daily_budget_minor, monthly_budget_minor, main_currency")
+    .select("opening_balance_minor, daily_budget_minor, monthly_budget_minor, daily_money_limit, main_currency")
     .eq("user_id", userId)
     .maybeSingle();
   const num = (v: unknown) => (v == null ? null : Number(v));
   return {
     currency: (data?.main_currency as string) ?? "KGS",
     openingBalanceMinor: num(data?.opening_balance_minor),
-    dailyBudgetMinor: num(data?.daily_budget_minor),
+    // Тот же запасной лимит из онбординга, что и на сайте: иначе бот отвечал
+    // «бюджет не задан» там, где экран «Деньги» показывал остаток.
+    dailyBudgetMinor: effectiveDailyBudgetMinor(
+      num(data?.daily_budget_minor),
+      num(data?.daily_money_limit),
+    ),
     monthlyBudgetMinor: num(data?.monthly_budget_minor),
   };
 }

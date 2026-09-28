@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseUrl } from "@/lib/env";
 import { financialDayOf } from "@/domain/finance/day";
-import { budgetStatus, computeBalance, summarizeDay, summarizeMonth, type Transaction } from "@/domain/finance/stats";
+import {
+  budgetStatus, computeBalance, effectiveDailyBudgetMinor,
+  summarizeDay, summarizeMonth, type Transaction,
+} from "@/domain/finance/stats";
 import { dailyReport } from "@/domain/finance/report";
 import type { CategoryId } from "@/domain/finance/categories";
 
@@ -69,7 +72,7 @@ async function buildReport(sb: Admin, userId: string, day: string): Promise<stri
     sb.from("transactions").select("*").eq("user_id", userId).order("occurred_at", { ascending: false }).limit(1000),
     sb
       .from("user_settings")
-      .select("opening_balance_minor, daily_budget_minor, main_currency")
+      .select("opening_balance_minor, daily_budget_minor, daily_money_limit, main_currency")
       .eq("user_id", userId)
       .maybeSingle(),
   ]);
@@ -97,7 +100,10 @@ async function buildReport(sb: Admin, userId: string, day: string): Promise<stri
     today,
     month: summarizeMonth(all, day, currency),
     currency,
-    dayBudget: budgetStatus(today.expensesMinor, num(cfg.daily_budget_minor)),
+    dayBudget: budgetStatus(
+      today.expensesMinor,
+      effectiveDailyBudgetMinor(num(cfg.daily_budget_minor), num(cfg.daily_money_limit)),
+    ),
     balanceMinor: computeBalance(all, num(cfg.opening_balance_minor), currency),
   });
 }
