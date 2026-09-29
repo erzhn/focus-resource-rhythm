@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -99,6 +100,16 @@ interface StoreValue {
   deleteRecurring: (id: string) => void;
   /** Сопоставить категорию трат со сферой жизни; null — убрать сопоставление. */
   setCategoryArea: (category: CategoryId, areaId: string | null) => void;
+
+  /** Последняя неудача сохранения или загрузки; null — всё доехало. */
+  syncError: SyncError | null;
+}
+
+/** Неудача записи или чтения, которую интерфейс должен показать. */
+export interface SyncError {
+  /** Растущий номер: по нему интерфейс отличает новую ошибку от показанной. */
+  id: number;
+  message: string;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -122,6 +133,19 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   );
   const [loading, setLoading] = useState(provider.mode === "supabase");
 
+  /**
+   * Последняя неудача синхронизации. id растёт, чтобы интерфейс отличал новую
+   * ошибку от уже показанной, а не молчал при повторе той же самой.
+   */
+  const [syncError, setSyncError] = useState<SyncError | null>(null);
+  const errorSeq = useRef(0);
+  const reloading = useRef(false);
+
+  const reportError = useCallback((message: string) => {
+    errorSeq.current += 1;
+    setSyncError({ id: errorSeq.current, message });
+  }, []);
+
   // Гидратация снимка из провайдера (для реального режима — из БД).
   useEffect(() => {
     let alive = true;
@@ -130,21 +154,62 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
       .then((snapshot) => {
         if (alive) setState(snapshot);
       })
-      .catch((e) => console.error("Не удалось загрузить данные:", e))
+      .catch((e) => {
+        console.error("Не удалось загрузить данные:", e);
+        // Молчать нельзя: иначе пустой экран выглядит как «данных нет».
+        if (alive) reportError("Не удалось загрузить данные. Проверьте связь и обновите страницу.");
+      })
       .finally(() => {
         if (alive) setLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [provider, now]);
+  }, [provider, now, reportError]);
 
-  /** Персистит мутацию в провайдер, не блокируя оптимистичный локальный апдейт. */
+  /**
+   * Откат оптимистичного изменения: перечитываем снимок — база источник истины.
+   *
+   * Перечитывается состояние целиком, поэтому вместе с неудавшимся изменением
+   * отменятся и другие, ещё не доехавшие до базы. Это и требуется: показывать
+   * «сохранено» там, где не сохранено, хуже, чем потерять правку.
+   */
+  const rollback = useCallback(() => {
+    // В демо-режиме база — это память, перечитывать нечего (и запись не падает).
+    if (provider.mode !== "supabase" || reloading.current) return;
+    reloading.current = true;
+    provider
+      .loadSnapshot(now)
+      .then(setState)
+      .catch((e) => {
+        console.error("Не удалось перечитать данные:", e);
+        // Откат не удался — на экране осталось несохранённое. Сказать об этом
+        // важнее, чем промолчать: иначе обещание «изменение отменено» будет ложным.
+        reportError("Связь с базой потеряна. Данные на экране могут быть несохранёнными — обновите страницу.");
+      })
+      .finally(() => {
+        reloading.current = false;
+      });
+  }, [provider, now, reportError]);
+
+  /**
+   * Персистит мутацию в провайдер, не блокируя оптимистичный локальный апдейт.
+   *
+   * Если запись не прошла, раньше об этом знала только консоль: на экране всё
+   * выглядело сохранённым, а после перезагрузки изменение исчезало. Теперь
+   * ошибка доходит до пользователя, а экран возвращается к тому, что в базе.
+   *
+   * label — что именно не сохранилось, человеческими словами.
+   */
   const persist = useCallback(
-    (fn: (p: DataProvider) => Promise<void>) => {
-      fn(provider).catch((e) => console.error("Ошибка сохранения:", e));
+    (fn: (p: DataProvider) => Promise<void>, label: string) => {
+      fn(provider).catch((e) => {
+        console.error(`Ошибка сохранения (${label}):`, e);
+        reportError(`Не удалось сохранить: ${label}. Изменение отменено.`);
+        rollback();
+      });
     },
-    [provider],
+    [provider, reportError, rollback],
   );
 
   /** Дневной денежный лимит — ОДИН на всё приложение, правило в домене. */
@@ -233,7 +298,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         scheduledEnd: task.scheduledEnd ?? null,
       };
       setState((s) => ({ ...s, tasks: [newTask, ...s.tasks] }));
-      persist((p) => p.createTask(newTask));
+      persist((p) => p.createTask(newTask), "создание задачи");
       return newTask.id;
     },
     [persist],
@@ -245,7 +310,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
       }));
-      persist((p) => p.updateTask(id, patch));
+      persist((p) => p.updateTask(id, patch), "изменение задачи");
     },
     [persist],
   );
@@ -261,7 +326,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           return { ...t, status: nextStatus };
         }),
       }));
-      persist((p) => p.updateTask(id, { status: nextStatus }));
+      persist((p) => p.updateTask(id, { status: nextStatus }), "статус задачи");
     },
     [persist],
   );
@@ -275,7 +340,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           t.id === id ? { ...t, manualPriority: score, manualPriorityNote } : t,
         ),
       }));
-      persist((p) => p.updateTask(id, { manualPriority: score, manualPriorityNote }));
+      persist((p) => p.updateTask(id, { manualPriority: score, manualPriorityNote }), "приоритет задачи");
     },
     [persist],
   );
@@ -298,7 +363,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         results: s.results.map((r) => (r.id === resultId ? { ...r, zone } : r)),
       }));
-      persist((p) => p.setResultZone(resultId, zone));
+      persist((p) => p.setResultZone(resultId, zone), "зона результата");
       return { ok: true, message: "Зона обновлена." };
     },
     [persist, state.results],
@@ -319,7 +384,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         day: financialDayOf(occurredAt),
       };
       setState((s) => ({ ...s, transactions: [tx, ...s.transactions] }));
-      persist((p) => p.addTransaction(tx));
+      persist((p) => p.addTransaction(tx), "запись операции");
       return tx.id;
     },
     [persist],
@@ -336,7 +401,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...withDay } : t)),
       }));
-      persist((p) => p.updateTransaction(id, withDay));
+      persist((p) => p.updateTransaction(id, withDay), "правка операции");
     },
     [persist],
   );
@@ -344,7 +409,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   const deleteTransaction = useCallback<StoreValue["deleteTransaction"]>(
     (id) => {
       setState((s) => ({ ...s, transactions: s.transactions.filter((t) => t.id !== id) }));
-      persist((p) => p.deleteTransaction(id));
+      persist((p) => p.deleteTransaction(id), "удаление операции");
     },
     [persist],
   );
@@ -353,7 +418,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (input) => {
       const item: RecurringExpense = { ...input, id: nextId() };
       setState((s) => ({ ...s, recurring: [...s.recurring, item] }));
-      persist((p) => p.addRecurring(item));
+      persist((p) => p.addRecurring(item), "регулярный платёж");
       return item.id;
     },
     [persist],
@@ -365,7 +430,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         recurring: s.recurring.map((r) => (r.id === id ? { ...r, ...patch } : r)),
       }));
-      persist((p) => p.updateRecurring(id, patch));
+      persist((p) => p.updateRecurring(id, patch), "изменение регулярного платежа");
     },
     [persist],
   );
@@ -373,7 +438,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   const deleteRecurring = useCallback<StoreValue["deleteRecurring"]>(
     (id) => {
       setState((s) => ({ ...s, recurring: s.recurring.filter((r) => r.id !== id) }));
-      persist((p) => p.deleteRecurring(id));
+      persist((p) => p.deleteRecurring(id), "удаление регулярного платежа");
     },
     [persist],
   );
@@ -387,7 +452,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         else next[category] = areaId;
         return { ...s, categoryAreas: next };
       });
-      persist((p) => p.setCategoryArea(category, areaId));
+      persist((p) => p.setCategoryArea(category, areaId), "сфера для категории");
     },
     [persist],
   );
@@ -395,14 +460,14 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   const setFinanceSettings = useCallback<StoreValue["setFinanceSettings"]>(
     (patch) => {
       setState((s) => ({ ...s, ...patch }));
-      persist((p) => p.saveFinanceSettings(patch));
+      persist((p) => p.saveFinanceSettings(patch), "настройки учёта");
     },
     [persist],
   );
 
   const confirmDayPlan = useCallback(() => {
     setState((s) => ({ ...s, dayPlanConfirmed: true }));
-    persist((p) => p.confirmDayPlan(now));
+    persist((p) => p.confirmDayPlan(now), "подтверждение плана дня");
   }, [persist, now]);
 
   const setTaskStatus = useCallback<StoreValue["setTaskStatus"]>(
@@ -411,7 +476,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         tasks: s.tasks.map((t) => (t.id === id ? { ...t, status } : t)),
       }));
-      persist((p) => p.updateTask(id, { status }));
+      persist((p) => p.updateTask(id, { status }), "статус задачи");
     },
     [persist],
   );
@@ -439,8 +504,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           postponements: [postponement, ...s.postponements],
         };
       });
-      persist((p) => p.updateTask(id, { status: "postponed", dueDate: toDate }));
-      if (postponement) persist((p) => p.addPostponement(postponement!));
+      persist((p) => p.updateTask(id, { status: "postponed", dueDate: toDate }), "перенос задачи");
+      if (postponement) persist((p) => p.addPostponement(postponement!), "причина переноса");
     },
     [persist, now],
   );
@@ -468,8 +533,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           ],
         };
       });
-      created.forEach((t) => persist((p) => p.createTask(t)));
-      persist((p) => p.updateTask(id, { status: "cancelled" }));
+      created.forEach((t) => persist((p) => p.createTask(t), "разбиение задачи"));
+      persist((p) => p.updateTask(id, { status: "cancelled" }), "разбиение задачи");
     },
     [persist],
   );
@@ -478,7 +543,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (v) => {
       const eveningEnergy = Math.max(1, Math.min(5, v));
       setState((s) => ({ ...s, eveningEnergy }));
-      persist((p) => p.upsertCheckin(now, { eveningEnergy }));
+      persist((p) => p.upsertCheckin(now, { eveningEnergy }), "оценка сил вечером");
     },
     [persist, now],
   );
@@ -486,7 +551,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   const saveEveningReview = useCallback<StoreValue["saveEveningReview"]>(
     (conclusion) => {
       setState((s) => ({ ...s, eveningConclusion: conclusion }));
-      persist((p) => p.saveEveningReview(now, conclusion));
+      persist((p) => p.saveEveningReview(now, conclusion), "вечерний итог");
     },
     [persist, now],
   );
@@ -499,7 +564,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         decisions = s.weeklyDecisions;
         return { ...s, nextWeekResults: next };
       });
-      persist((p) => p.saveWeeklyReview(now, next, decisions));
+      persist((p) => p.saveWeeklyReview(now, next, decisions), "недельная сверка");
     },
     [persist, now],
   );
@@ -530,8 +595,8 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           weeklyDecisions: nextDecisions,
         };
       });
-      if (zone) persist((p) => p.setResultZone(resultId, zone));
-      persist((p) => p.saveWeeklyReview(now, nextResults, nextDecisions));
+      if (zone) persist((p) => p.setResultZone(resultId, zone), "зона результата");
+      persist((p) => p.saveWeeklyReview(now, nextResults, nextDecisions), "недельная сверка");
     },
     [persist, now],
   );
@@ -558,7 +623,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           }),
         };
       });
-      if (result.ok) persist((p) => p.addDependency(taskId, dependsOnId));
+      if (result.ok) persist((p) => p.addDependency(taskId, dependsOnId), "зависимость задач");
       return result;
     },
     [persist],
@@ -574,7 +639,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
           return t;
         }),
       }));
-      persist((p) => p.removeDependency(taskId, dependsOnId));
+      persist((p) => p.removeDependency(taskId, dependsOnId), "удаление зависимости");
     },
     [persist],
   );
@@ -587,7 +652,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         availableMinutes: input.availableMinutes,
         dailyMoneyLimitMajor: input.dailyMoneyLimitMajor,
       }));
-      persist((p) => p.saveOnboarding(input));
+      persist((p) => p.saveOnboarding(input), "первичная настройка");
     },
     [persist],
   );
@@ -596,7 +661,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (event) => {
       const newEvent: DemoEvent = { ...event, id: nextId() };
       setState((s) => ({ ...s, events: [...s.events, newEvent] }));
-      persist((p) => p.createEvent(newEvent));
+      persist((p) => p.createEvent(newEvent), "создание события");
     },
     [persist],
   );
@@ -607,7 +672,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
         ...s,
         events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
       }));
-      persist((p) => p.updateEvent(id, patch));
+      persist((p) => p.updateEvent(id, patch), "изменение события");
     },
     [persist],
   );
@@ -615,7 +680,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
   const deleteEvent = useCallback<StoreValue["deleteEvent"]>(
     (id) => {
       setState((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
-      persist((p) => p.deleteEvent(id));
+      persist((p) => p.deleteEvent(id), "удаление события");
     },
     [persist],
   );
@@ -624,7 +689,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (v: number) => {
       const morningEnergy = Math.max(1, Math.min(5, v));
       setState((s) => ({ ...s, morningEnergy }));
-      persist((p) => p.upsertCheckin(now, { morningEnergy }));
+      persist((p) => p.upsertCheckin(now, { morningEnergy }), "оценка сил утром");
     },
     [persist, now],
   );
@@ -633,7 +698,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     (v: number) => {
       const availableMinutes = Math.max(0, v);
       setState((s) => ({ ...s, availableMinutes }));
-      persist((p) => p.upsertCheckin(now, { availableMinutes }));
+      persist((p) => p.upsertCheckin(now, { availableMinutes }), "доступное время");
     },
     [persist, now],
   );
@@ -694,6 +759,7 @@ export function DemoStoreProvider({ children }: { children: ReactNode }) {
     updateRecurring,
     deleteRecurring,
     setCategoryArea,
+    syncError,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
