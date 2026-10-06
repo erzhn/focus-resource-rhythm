@@ -8,6 +8,7 @@ import {
 } from "@/domain/finance/stats";
 import { dailyReport } from "@/domain/finance/report";
 import type { CategoryId } from "@/domain/finance/categories";
+import { enqueue, flush } from "@/lib/telegram/outbox";
 
 /**
  * Ежедневный отчёт в Telegram по расписанию.
@@ -17,6 +18,10 @@ import type { CategoryId } from "@/domain/finance/categories";
  *
  * Отчёт уходит только тем, кто связал чат и у кого за день были операции:
  * пустое «расходов не было» каждый вечер быстро превращается в спам.
+ *
+ * Отправка идёт через очередь исходящих с ключом «user:день:тип». Благодаря
+ * ему повторный запуск планировщика не пришлёт отчёт второй раз — а частота
+ * запуска в проекте может измениться.
  */
 
 export const runtime = "nodejs";
@@ -44,20 +49,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 503 });
   }
 
-  let sent = 0;
+  let queued = 0;
   for (const link of links ?? []) {
     try {
       const text = await buildReport(sb, link.user_id as string, day);
       if (!text) continue; // за день ничего не было — не беспокоим
-      await send(token, link.chat_id as number, text);
-      sent++;
+
+      const added = await enqueue(sb, {
+        userId: link.user_id as string,
+        chatId: link.chat_id as number,
+        // Ключ одноразовости: пользователь, финансовый день, тип события.
+        eventKey: `daily-report:${link.user_id}:${day}`,
+        kind: "daily_report",
+        body: text,
+      });
+      if (added) queued += 1;
     } catch (e) {
       // Один сбойный получатель не должен останавливать рассылку остальным.
-      console.error("daily-report: отправка не удалась", e);
+      console.error("daily-report: подготовка отчёта не удалась", e);
     }
   }
 
-  return NextResponse.json({ ok: true, sent, total: links?.length ?? 0 });
+  const outbox = await flush(sb, token, 100);
+  return NextResponse.json({ ok: true, queued, outbox, total: links?.length ?? 0 });
 }
 
 type Admin = ReturnType<typeof adminClient>;
@@ -105,14 +119,6 @@ async function buildReport(sb: Admin, userId: string, day: string): Promise<stri
       effectiveDailyBudgetMinor(num(cfg.daily_budget_minor), num(cfg.daily_money_limit)),
     ),
     balanceMinor: computeBalance(all, num(cfg.opening_balance_minor), currency),
-  });
-}
-
-async function send(token: string, chatId: number, text: string): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
   });
 }
 
