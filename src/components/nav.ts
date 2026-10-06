@@ -9,6 +9,7 @@ import {
   Target,
   Gauge,
   Wallet,
+  CandlestickChart,
   ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/goals", label: "Цели и проекты", short: "Цели", icon: Target },
   { href: "/calendar", label: "Календарь", short: "Календарь", icon: CalendarDays, primary: true },
   { href: "/finance", label: "Деньги", short: "Деньги", icon: Wallet, primary: true },
+  { href: "/trading", label: "Торговля", icon: CandlestickChart },
   { href: "/resources", label: "Ресурсы", icon: Gauge },
   { href: "/stats", label: "Статистика", icon: BarChart3 },
   { href: "/reviews", label: "Сверки", icon: ClipboardCheck },

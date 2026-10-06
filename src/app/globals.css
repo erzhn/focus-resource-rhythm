@@ -268,3 +268,23 @@ textarea::placeholder {
     font-size: 16px;
   }
 }
+
+/* Акцент модуля «Торговля».
+   Отдельные токены, а не правка общей палитры: золотой нужен только здесь, и
+   менять из-за него смысл --zone-later или --warning было бы неверно. */
+:root {
+  --trade-accent: #a9762a;
+  --trade-accent-soft: rgba(169, 118, 42, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --trade-accent: #d3a24d;
+    --trade-accent-soft: rgba(211, 162, 77, 0.16);
+  }
+}
+
+:root[data-theme="dark"] {
+  --trade-accent: #d3a24d;
+  --trade-accent-soft: rgba(211, 162, 77, 0.16);
+}
