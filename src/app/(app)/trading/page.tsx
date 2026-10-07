@@ -1,11 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, LineChart, Plus, Wallet } from "lucide-react";
+import dynamicImport from "next/dynamic";
+import { ArrowRight, LineChart, Plus, Target, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardTitle, EmptyState, Button } from "@/components/ui/primitives";
 import { SectionTabs } from "@/components/trading/section-tabs";
 import { Money } from "@/components/trading/value";
 import { listAccounts, listOpenTrades, listTrades, tradingAvailable } from "@/lib/trading/queries";
 import { TradeRowCard } from "@/components/trading/trade-row-card";
+import { loadAnalytics, periodRange } from "@/lib/trading/analytics-data";
+import { drawdown, equityCurve, observations } from "@/domain/trading/analytics";
+import { round, toTrimmedString } from "@/domain/trading/decimal";
+
+const EquityCurve = dynamicImport(() =>
+  import("@/components/trading/charts").then((m) => m.EquityCurve),
+);
 
 /**
  * Обзор счёта.
@@ -58,10 +66,20 @@ export default async function TradingOverview({
     );
   }
 
-  const [open, recent] = await Promise.all([
+  const [open, recent, analytics] = await Promise.all([
     listOpenTrades(account.id),
     listTrades({ accountId: account.id, status: "closed" }, 1, 5),
+    loadAnalytics(account.id, account.currency),
   ]);
+
+  // Обзор показывает последние три месяца: на первом экране нужен не весь
+  // архив, а то, что происходит сейчас.
+  const { from, to } = periodRange(90);
+  const curve = equityCurve(analytics.postings.filter((p) => p.at >= from && p.at <= to));
+  const dd = drawdown(curve);
+  const focus = observations(
+    analytics.trades.filter((t) => t.closedAt && t.closedAt >= from && t.closedAt <= to),
+  )[0];
 
   return (
     <div>
@@ -109,6 +127,67 @@ export default async function TradingOverview({
             {account.open_trades} / {account.closed_trades}
           </span>
         </Stat>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <CardTitle>Накопленный результат за 90 дней</CardTitle>
+            <Link
+              href={`/trading/analytics?account=${account.id}`}
+              className="text-xs text-primary hover:underline"
+            >
+              Аналитика →
+            </Link>
+          </div>
+          <div className="mt-3 h-56">
+            {curve.length === 0 ? (
+              <p className="text-sm text-muted">
+                Денежных проводок за последние 90 дней не было.
+              </p>
+            ) : (
+              <EquityCurve
+                currency={account.currency}
+                data={curve.map((p) => ({
+                  label: p.at.toISOString().slice(5, 10),
+                  value: Number(toTrimmedString(round(p.cumulative, 2))),
+                }))}
+              />
+            )}
+          </div>
+          {curve.length > 0 && (
+            <p className="mt-3 border-t border-border pt-3 text-xs text-muted">
+              Денежная просадка от максимума:{" "}
+              <Money value={toTrimmedString(dd.max)} currency={account.currency} tone={false} />.
+              Пополнения и выводы в эту кривую не входят.
+            </p>
+          )}
+        </Card>
+
+        <Card className="h-fit">
+          <CardTitle className="flex items-center gap-1.5">
+            <Target className="h-3.5 w-3.5" /> Фокус
+          </CardTitle>
+          {focus ? (
+            <>
+              <p className="mt-3 text-sm font-medium">{focus.title}</p>
+              <p className="mt-1 text-xs text-muted-2">{focus.basis}</p>
+              <Link
+                href={`/trading/trades?account=${account.id}&status=closed`}
+                className="mt-3 inline-block text-xs text-primary hover:underline"
+              >
+                Показать сделки
+              </Link>
+              <p className="mt-3 border-t border-border pt-3 text-[11px] text-muted-2">
+                Это описание данных, а не вывод о причинах.
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-muted">
+              Проверяемых наблюдений за 90 дней нет: данных либо достаточно, либо ещё слишком мало.
+            </p>
+          )}
+        </Card>
       </div>
 
       <section className="mt-6">

@@ -198,13 +198,7 @@ export function realize(
     };
   }
 
-  const sign = directionSign(entry.direction);
-  const perExitQuote = exits.map((e) =>
-    round(
-      mul(mul(mul(sign, sub(e.price, entry.entryPrice)), e.quantity), entry.spec.contractMultiplier),
-      SCALE.money,
-    ),
-  );
+  const perExitQuote = exits.map((e) => exitResultQuote(entry, e));
 
   const grossQuote: Maybe<Decimal> =
     exits.length === 0
@@ -249,6 +243,30 @@ export function realize(
     avgExitPrice,
     closed,
   };
+}
+
+/**
+ * Результат ОДНОГО выхода в валюте котировки.
+ *
+ * Вынесено отдельно, потому что нужно дважды: внутри общего подсчёта и для
+ * разнесения денег по проводкам в аналитике. Две реализации одной формулы
+ * рано или поздно разошлись бы.
+ */
+export function exitResultQuote(entry: TradeEntry, exit: TradeExit): Decimal {
+  const sign = directionSign(entry.direction);
+  return round(
+    mul(
+      mul(mul(sign, sub(exit.price, entry.entryPrice)), exit.quantity),
+      entry.spec.contractMultiplier,
+    ),
+    SCALE.money,
+  );
+}
+
+/** Тот же результат, пересчитанный в валюту счёта по курсу этого выхода. */
+export function exitResultAccount(entry: TradeEntry, exit: TradeExit): Maybe<Decimal> {
+  if (entry.spec.model !== "linear") return unknown(LINEAR_ONLY);
+  return convert(exitResultQuote(entry, exit), exit.fx);
 }
 
 /**

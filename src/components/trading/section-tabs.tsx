@@ -14,6 +14,8 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/trading", label: "Обзор", exact: true },
   { href: "/trading/trades", label: "Сделки" },
+  { href: "/trading/analytics", label: "Аналитика" },
+  { href: "/trading/journal", label: "Дневник" },
   { href: "/trading/accounts", label: "Счета" },
 ];
 

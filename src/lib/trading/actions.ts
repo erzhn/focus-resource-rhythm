@@ -677,3 +677,62 @@ export async function addCashFlow(input: z.input<typeof cashSchema>): Promise<Ac
     return done(undefined);
   });
 }
+
+// ---------------------------------------------------------------------------
+// Дневник
+// ---------------------------------------------------------------------------
+
+const journalSchema = z.object({
+  accountId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД."),
+  plan: z.string().optional(),
+  mood: z.string().optional(),
+  context: z.string().optional(),
+  outcome: z.string().optional(),
+  lesson: z.string().optional(),
+  isDayOff: z.boolean().optional(),
+  /** Отметить вечерний итог завершённым. */
+  completeEvening: z.boolean().optional(),
+});
+
+/**
+ * Запись дня дневника.
+ *
+ * Утренняя часть и вечерний итог отмечаются раздельно: наличие плана не
+ * означает, что день разобран, и напоминание об итоге должно приходить по
+ * статусу итога, а не по наличию записи вообще.
+ */
+export async function saveJournalDay(
+  input: z.input<typeof journalSchema>,
+): Promise<ActionResult<undefined>> {
+  return guard(async () => {
+    const { supabase, userId } = await auth();
+    const parsed = journalSchema.safeParse(input);
+    if (!parsed.success) return fail(parsed.error.issues[0].message);
+    const v = parsed.data;
+
+    const now = new Date().toISOString();
+    const hasMorning = Boolean(v.plan?.trim() || v.mood?.trim() || v.context?.trim());
+
+    const { error } = await supabase.from("trading_journal_days").upsert(
+      {
+        user_id: userId,
+        account_id: v.accountId,
+        day_date: v.date,
+        plan: v.plan?.trim() || null,
+        mood: v.mood?.trim() || null,
+        context: v.context?.trim() || null,
+        outcome: v.outcome?.trim() || null,
+        lesson: v.lesson?.trim() || null,
+        is_day_off: v.isDayOff ?? false,
+        morning_done_at: hasMorning ? now : null,
+        evening_done_at: v.completeEvening ? now : null,
+      },
+      { onConflict: "account_id,day_date" },
+    );
+
+    if (error) return fail(`Не удалось сохранить запись дня: ${error.message}`);
+    revalidatePath("/trading/journal");
+    return done(undefined);
+  });
+}
