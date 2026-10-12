@@ -17,6 +17,7 @@ import {
   rDistribution,
   realizedInPeriod,
 } from "@/domain/trading/analytics";
+import { comparableWithOutcome, disciplineScore } from "@/domain/trading/discipline";
 import { toTrimmedString, round, type Decimal } from "@/domain/trading/decimal";
 import { DASH, DIRECTION_LABELS, formatPercent, formatR } from "@/domain/trading/format";
 import type { Maybe } from "@/domain/trading/types";
@@ -99,6 +100,17 @@ export default async function AnalyticsPage({
     const index = new Date(t.localDate).getUTCDay();
     return { key: String(index), label: names[index] };
   });
+
+  // Для сравнения с результатом годятся только проверки, сделанные ДО входа
+  // и не восстановленные задним числом.
+  const inPeriodIds = new Set(inPeriod.map((t) => t.id));
+  const comparable = comparableWithOutcome(
+    data.evaluations.filter((e) => inPeriodIds.has(e.tradeId)).map((e) => e.evaluation),
+  );
+  const discipline = disciplineScore(comparable);
+  const reconstructed = data.evaluations.filter(
+    (e) => inPeriodIds.has(e.tradeId) && e.evaluation.reconstructed,
+  ).length;
 
   const notes = observations(inPeriod);
   const tradesLink = (patch: Record<string, string>) => {
@@ -227,6 +239,63 @@ export default async function AnalyticsPage({
           </p>
         </Card>
       </div>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <CardTitle>Дисциплина</CardTitle>
+          <span className="text-[11px] text-muted-2">
+            только проверки до входа · {comparable.length} оценок
+          </span>
+        </div>
+
+        {comparable.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">
+            Оценивать нечего: личные правила либо не включены, либо по сделкам этого периода
+            проверок не записано. Включить правила —{" "}
+            <Link href={`/trading/rules?account=${account.id}`} className="text-primary hover:underline">
+              на вкладке «Правила»
+            </Link>
+            .
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.06em] text-muted-2">Оценка</p>
+                <p className="mt-1 text-xl font-extrabold">
+                  <MaybeValue
+                    value={discipline.score}
+                    render={(v) => `${toTrimmedString(round(v, 0))} из 100`}
+                  />
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.06em] text-muted-2">Полнота</p>
+                <p className="mt-1 text-xl font-extrabold">
+                  <MaybeValue
+                    value={discipline.coverage}
+                    render={(v) => formatPercent(toTrimmedString(round(v, 0)))}
+                  />
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.06em] text-muted-2">Проверок</p>
+                <p className="mt-1 text-xl font-extrabold tabular-nums">
+                  {discipline.passed} / {discipline.passed + discipline.failed}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-muted">
+              Выполнено {discipline.passed}, нарушено {discipline.failed}, недостаточно данных —{" "}
+              {discipline.unknown}. Неизвестное не засчитывается выполненным: иначе незаполненный
+              журнал повышал бы оценку.
+              {reconstructed > 0 &&
+                ` Ещё ${reconstructed} оценок восстановлены задним числом и в сравнение с результатом не входят.`}
+            </p>
+          </>
+        )}
+      </Card>
 
       {notes.length > 0 && (
         <Card className="mt-4">

@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { dec } from "@/domain/trading/decimal";
 import { exitResultAccount } from "@/domain/trading/trade-math";
 import type { AnalyticsTrade, Posting } from "@/domain/trading/analytics";
+import type { RuleEvaluation } from "@/domain/trading/discipline";
 import {
   adjustmentFromRow,
   entryFromRow,
@@ -33,6 +34,8 @@ export const MAX_EXITS = 8000;
 export interface AnalyticsData {
   trades: AnalyticsTrade[];
   postings: Posting[];
+  /** Оценки правил по сделкам выборки, с привязкой к сделке. */
+  evaluations: { tradeId: string; evaluation: RuleEvaluation }[];
   /** Валюта счёта: все денежные величины приведены к ней. */
   currency: string;
   /** Данных больше, чем влезло в выборку. */
@@ -43,12 +46,12 @@ export interface AnalyticsData {
 
 export async function loadAnalytics(accountId: string, currency: string): Promise<AnalyticsData> {
   if (!isSupabaseConfigured) {
-    return { trades: [], postings: [], currency, truncated: false, postingsUnknown: 0 };
+    return { trades: [], postings: [], evaluations: [], currency, truncated: false, postingsUnknown: 0 };
   }
 
   const sb = await createClient();
 
-  const [tradesResult, exitsResult, adjustmentsResult] = await Promise.all([
+  const [tradesResult, exitsResult, adjustmentsResult, evaluationsResult] = await Promise.all([
     sb
       .from("trading_trades_v")
       .select("*")
@@ -65,6 +68,11 @@ export async function loadAnalytics(accountId: string, currency: string): Promis
       .from("trade_cash_adjustments")
       .select("id, trade_id, kind, amount_account, posted_at")
       .order("posted_at", { ascending: false })
+      .limit(MAX_EXITS),
+    sb
+      .from("trade_rule_evaluations")
+      .select("trade_id, rule_code, rule_version, stage, status, weight, reconstructed, unknown_reason")
+      .not("trade_id", "is", null)
       .limit(MAX_EXITS),
   ]);
 
@@ -109,9 +117,34 @@ export async function loadAnalytics(accountId: string, currency: string): Promis
     postings.push({ at: parsed.at, amount: parsed.amountAccount, tradeId: a.trade_id });
   }
 
+  const evaluations = ((evaluationsResult.data ?? []) as {
+    trade_id: string;
+    rule_code: string;
+    rule_version: number;
+    stage: "pre_entry" | "in_trade" | "post_trade";
+    status: "passed" | "failed" | "unknown" | "not_applicable";
+    weight: unknown;
+    reconstructed: boolean;
+    unknown_reason: string | null;
+  }[])
+    .filter((e) => byTrade.has(e.trade_id))
+    .map((e) => ({
+      tradeId: e.trade_id,
+      evaluation: {
+        ruleCode: e.rule_code,
+        ruleVersion: e.rule_version,
+        stage: e.stage,
+        status: e.status,
+        weight: toDec(String(e.weight)) ?? dec("1"),
+        reconstructed: e.reconstructed,
+        unknownReason: e.unknown_reason ?? undefined,
+      } satisfies RuleEvaluation,
+    }));
+
   return {
     trades: rows.map(toAnalyticsTrade),
     postings,
+    evaluations,
     currency,
     truncated: rows.length >= MAX_TRADES,
     postingsUnknown,

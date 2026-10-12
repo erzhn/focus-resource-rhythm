@@ -12,6 +12,13 @@ import { finalR, initialRisk, plannedRR, realize } from "@/domain/trading/trade-
 import type { FxSnapshot, Maybe, TradeEntry } from "@/domain/trading/types";
 import { checkPartialClose, checkVolume } from "@/domain/trading/volume";
 import {
+  blockingViolations,
+  evaluatePreEntryRules,
+  RULE_BY_CODE,
+  type RuleCode,
+} from "@/domain/trading/rules";
+import { buildRuleContext, ensureRuleSet, loadRuleSet, toConfigs } from "./rules-data";
+import {
   adjustmentFromRow,
   entryFromRow,
   exitFromRow,
@@ -281,6 +288,80 @@ function reasonOf(...items: Maybe<Decimal>[]): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Личные правила
+// ---------------------------------------------------------------------------
+
+interface RuleRunInput {
+  accountId: string;
+  instrumentId: string;
+  prepared: Prepared;
+  setupId: string | null;
+  entryMoment: Date;
+}
+
+/**
+ * Прогон личных правил по состоянию НА МОМЕНТ входа.
+ *
+ * Возвращает и результат для показа, и готовые записи для журнала проверок:
+ * одна и та же оценка должна попасть и на экран, и в базу, иначе статистика
+ * дисциплины разойдётся с тем, что видел человек.
+ */
+async function runRules(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: RuleRunInput,
+): Promise<{
+  checks: RuleCheck[];
+  blocked: boolean;
+  evaluations: ReturnType<typeof evaluatePreEntryRules>;
+  configs: ReturnType<typeof toConfigs>;
+}> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { checks: [], blocked: false, evaluations: [], configs: [] };
+
+  const set = await loadRuleSet(supabase, user.id, input.accountId);
+  if (!set || set.rules.length === 0) {
+    return { checks: [], blocked: false, evaluations: [], configs: [] };
+  }
+
+  const configs = toConfigs(set);
+  const newsRule = configs.find((c) => c.code === "news_window" && c.enabled);
+  const windowMinutes = newsRule?.params.minutes ? Number(newsRule.params.minutes) : null;
+
+  const risk = initialRisk(input.prepared.entry);
+  const context = await buildRuleContext(supabase, {
+    accountId: input.accountId,
+    userId: user.id,
+    timezone: input.prepared.account.timezone,
+    bookBalance: input.prepared.account.book_balance,
+    instrumentId: input.instrumentId,
+    entryMoment: input.entryMoment,
+    risk,
+    hasStop: input.prepared.entry.initialStop !== null,
+    setupId: input.setupId,
+    balanceAtEntry: input.prepared.entry.balanceAtEntry,
+    newsWindowMinutes: Number.isFinite(windowMinutes) ? windowMinutes : null,
+  });
+
+  const evaluations = evaluatePreEntryRules(configs, context);
+  const blocking = blockingViolations(evaluations, configs);
+
+  const checks: RuleCheck[] = evaluations.map((e) => {
+    const config = configs.find((c) => c.code === e.ruleCode);
+    return {
+      code: e.ruleCode,
+      title: RULE_BY_CODE.get(e.ruleCode as RuleCode)?.title ?? e.ruleCode,
+      status: e.status,
+      mode: config?.mode ?? "warn",
+      reason: e.unknownReason,
+    };
+  });
+
+  return { checks, blocked: blocking.length > 0, evaluations, configs };
+}
+
+// ---------------------------------------------------------------------------
 // Проверка плана (ничего не записывает)
 // ---------------------------------------------------------------------------
 
@@ -296,9 +377,19 @@ const planSchema = z.object({
   riskBudget: z.string().optional(),
 });
 
+export interface RuleCheck {
+  code: string;
+  title: string;
+  status: "passed" | "failed" | "unknown" | "not_applicable";
+  mode: "warn" | "block_plan";
+  reason?: string;
+}
+
 export interface PlanPreview {
   approved: boolean;
   issues: { code: string; message: string; severity: "block" | "warn" }[];
+  /** Личные правила: что проверено, что нарушено, чего не хватило для вывода. */
+  rules: RuleCheck[];
   riskAccount: string | null;
   riskPct: string | null;
   plannedRr: string | null;
@@ -335,9 +426,18 @@ export async function previewPlan(input: z.input<typeof planSchema>): Promise<Ac
     const check = checkPlan(prepared.entry, { riskBudgetAccount: budget });
     const rr = plannedRR(prepared.entry);
 
+    const { checks, blocked } = await runRules(supabase, {
+      accountId: v.accountId,
+      instrumentId: v.instrumentId,
+      prepared,
+      setupId: null,
+      entryMoment: new Date(),
+    });
+
     return done({
-      approved: check.approved,
+      approved: check.approved && !blocked,
       issues: check.issues.map((i) => ({ code: i.code, message: i.message, severity: i.severity })),
+      rules: checks,
       riskAccount: maybe(check.risk.riskAccount),
       riskPct: maybe(check.risk.riskPct),
       plannedRr: maybe(rr),
@@ -450,6 +550,35 @@ export async function recordTrade(input: z.input<typeof recordSchema>): Promise<
       .single();
 
     if (error) return fail(`Не удалось записать сделку: ${error.message}`);
+
+    // Оценки правил сохраняются вместе со сделкой: именно они потом
+    // сравниваются с результатом, и восстановить их задним числом нельзя.
+    const { evaluations } = await runRules(supabase, {
+      accountId: v.accountId,
+      instrumentId: v.instrumentId,
+      prepared,
+      setupId: v.setupId || null,
+      entryMoment: openedAt,
+    });
+
+    if (evaluations.length > 0) {
+      await supabase.from("trade_rule_evaluations").insert(
+        evaluations.map((e) => ({
+          user_id: userId,
+          trade_id: data.id,
+          rule_code: e.ruleCode,
+          rule_version: e.ruleVersion,
+          stage: e.stage,
+          status: e.status,
+          weight: toString(e.weight),
+          unknown_reason: e.unknownReason ?? null,
+          evidence: e.evidence ?? {},
+          // Запись задним числом не является проверкой ДО входа.
+          reconstructed: v.entryMode === "historical",
+        })),
+      );
+    }
+
     revalidatePath("/trading");
     revalidatePath("/trading/trades");
     return done(data.id as string);
@@ -733,6 +862,74 @@ export async function saveJournalDay(
 
     if (error) return fail(`Не удалось сохранить запись дня: ${error.message}`);
     revalidatePath("/trading/journal");
+    return done(undefined);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Настройка правил
+// ---------------------------------------------------------------------------
+
+const rulesSchema = z.object({
+  accountId: z.string().uuid(),
+  rules: z.array(
+    z.object({
+      code: z.string(),
+      enabled: z.boolean(),
+      mode: z.enum(["warn", "block_plan"]),
+      weight: z.string(),
+      params: z.record(z.string(), z.string()),
+    }),
+  ),
+});
+
+/**
+ * Сохранение личных правил.
+ *
+ * Пороги принимаются как есть, включая пустые: пустой порог означает «не
+ * задан», и правило честно вернёт «недостаточно данных» вместо выполненного.
+ */
+export async function saveRules(input: z.input<typeof rulesSchema>): Promise<ActionResult<undefined>> {
+  return guard(async () => {
+    const { supabase, userId } = await auth();
+    const parsed = rulesSchema.safeParse(input);
+    if (!parsed.success) return fail(parsed.error.issues[0].message);
+    const v = parsed.data;
+
+    const set = await ensureRuleSet(supabase, userId, v.accountId);
+
+    for (const rule of v.rules) {
+      const weight = parseDecimal(rule.weight, "Вес") ?? dec("1");
+      const params = Object.fromEntries(
+        Object.entries(rule.params).map(([k, value]) => [k, value.trim() || null]),
+      );
+
+      const { error } = await supabase
+        .from("trading_rules")
+        .update({
+          enabled: rule.enabled,
+          mode: rule.mode,
+          weight: toString(weight),
+          params,
+        })
+        .eq("rule_set_id", set.id)
+        .eq("rule_code", rule.code);
+
+      if (error) return fail(`Не удалось сохранить правило: ${error.message}`);
+    }
+
+    revalidatePath("/trading/rules");
+    revalidatePath("/trading/new");
+    return done(undefined);
+  });
+}
+
+/** Создаёт набор правил, если его ещё нет. Вызывается при открытии экрана. */
+export async function initRules(accountId: string): Promise<ActionResult<undefined>> {
+  return guard(async () => {
+    const { supabase, userId } = await auth();
+    await ensureRuleSet(supabase, userId, accountId);
+    revalidatePath("/trading/rules");
     return done(undefined);
   });
 }

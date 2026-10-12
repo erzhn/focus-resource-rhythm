@@ -352,6 +352,41 @@ function PreviewPanel({
             <Row label="Допустимый объём" value={preview.maxVolume} hint={preview.maxVolumeReason} />
           </dl>
 
+          {preview.rules.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-2">
+                Ваши правила
+              </p>
+              <ul className="space-y-1">
+                {preview.rules.map((rule) => (
+                  <li key={rule.code} className="flex items-start gap-1.5 text-xs">
+                    <span
+                      className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                        rule.status === "passed"
+                          ? "bg-[var(--resource)]"
+                          : rule.status === "failed"
+                            ? "bg-[var(--attention)]"
+                            : "bg-[var(--muted-2)]"
+                      }`}
+                    />
+                    <span className="min-w-0">
+                      {rule.title}
+                      {rule.status === "failed" && (
+                        <span className="text-[var(--attention)]">
+                          {" "}
+                          — нарушено{rule.mode === "block_plan" ? ", план не одобрен" : ""}
+                        </span>
+                      )}
+                      {rule.status === "unknown" && (
+                        <span className="text-muted-2"> — недостаточно данных: {rule.reason}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {preview.issues.length > 0 && (
             <ul className="space-y-1.5 border-t border-border pt-3">
               {preview.issues.map((issue) => (

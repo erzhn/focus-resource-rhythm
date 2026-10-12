@@ -29,6 +29,8 @@ export interface RuleEvaluation {
   reconstructed: boolean;
   /** Почему статус unknown: чего именно не хватило. */
   unknownReason?: string;
+  /** На чём сделан вывод: что именно сравнивалось. */
+  evidence?: Record<string, unknown>;
 }
 
 export interface DisciplineResult {

@@ -16,6 +16,7 @@ const TABS = [
   { href: "/trading/trades", label: "Сделки" },
   { href: "/trading/analytics", label: "Аналитика" },
   { href: "/trading/journal", label: "Дневник" },
+  { href: "/trading/rules", label: "Правила" },
   { href: "/trading/accounts", label: "Счета" },
 ];
 
