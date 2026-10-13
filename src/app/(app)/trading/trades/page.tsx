@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ListFilter } from "lucide-react";
+import { Download, ListFilter } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { SectionTabs } from "@/components/trading/section-tabs";
@@ -80,6 +80,19 @@ export default async function TradesPage({
         eyebrow="Торговля"
         title="Сделки"
         subtitle={`${account.title} · найдено ${result.total}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-1">
+            <ExportLink href={`/api/trading/export?account=${account.id}&kind=trades&format=csv`}>
+              Сделки CSV
+            </ExportLink>
+            <ExportLink href={`/api/trading/export?account=${account.id}&kind=cash&format=csv`}>
+              Деньги CSV
+            </ExportLink>
+            <ExportLink href={`/api/trading/export?account=${account.id}&format=json`}>
+              Резерв JSON
+            </ExportLink>
+          </div>
+        }
       />
       <SectionTabs />
 
@@ -213,6 +226,25 @@ function PageLink({
     <Link href={href} className="text-primary hover:underline">
       {children}
     </Link>
+  );
+}
+
+
+/**
+ * Ссылка на выгрузку.
+ *
+ * Обычная ссылка, а не кнопка со скриптом: файл отдаёт серверный маршрут с
+ * теми же правилами доступа, что и экраны, и браузер сохраняет его сам.
+ */
+function ExportLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      download
+      className="inline-flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] border border-border px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+    >
+      <Download className="h-3.5 w-3.5" /> {children}
+    </a>
   );
 }
 
