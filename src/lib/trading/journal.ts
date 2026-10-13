@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { ZERO, add, dec, type Decimal } from "@/domain/trading/decimal";
+import { ZERO, add, type Decimal } from "@/domain/trading/decimal";
 import { monthOf, shiftDate } from "@/domain/trading/day";
 import { toDec, type TradeRow } from "./mappers";
 
@@ -132,4 +132,3 @@ function lastDayOf(month: string): string {
 }
 
 export const currentMonth = () => monthOf(new Date().toISOString().slice(0, 10));
-export const ZERO_NET = dec("0");

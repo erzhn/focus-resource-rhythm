@@ -68,11 +68,14 @@ async function tradesCsv(sb: Db, account: Account) {
     .limit(MAX_ROWS);
 
   const trades = (data ?? []) as TradeRow[];
-  const { data: exitRows } = await sb
-    .from("trade_exits_v")
-    .select("*")
-    .in("trade_id", trades.map((t) => t.id))
-    .order("exited_at");
+  // Пустой список превратился бы в «in.()» — синтаксическую ошибку PostgREST.
+  const { data: exitRows } = trades.length
+    ? await sb
+        .from("trade_exits_v")
+        .select("*")
+        .eq("account_id", account.id)
+        .order("exited_at")
+    : { data: [] };
 
   const exitsByTrade = new Map<string, { quantity: string; price: string; exited_at: string }[]>();
   for (const e of (exitRows ?? []) as { trade_id: string; quantity: string; price: string; exited_at: string }[]) {

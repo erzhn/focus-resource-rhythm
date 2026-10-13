@@ -1,4 +1,4 @@
-import { type Decimal, ZERO, add, div, isPositive, sum } from "./decimal";
+import { type Decimal, add, div, isPositive, sum } from "./decimal";
 import { localDate, type LocalDate } from "./day";
 import { SCALE, type Maybe, known, unknown } from "./types";
 
@@ -173,24 +173,3 @@ export function pauseActive(
   const until = previous.closedAt!.getTime() + pauseMinutes * 60_000;
   return known(entryMoment.getTime() < until);
 }
-
-/** Пустая оценка для правила, которое нечем проверить. */
-export function unknownEvaluation(
-  ruleCode: string,
-  ruleVersion: number,
-  stage: RuleStage,
-  weight: Decimal,
-  reason: string,
-): RuleEvaluation {
-  return {
-    ruleCode,
-    ruleVersion,
-    stage,
-    status: "unknown",
-    weight,
-    reconstructed: false,
-    unknownReason: reason,
-  };
-}
-
-export const ZERO_WEIGHT = ZERO;

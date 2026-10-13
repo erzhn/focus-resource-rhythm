@@ -106,7 +106,14 @@ export default async function TradingOverview({
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Учётный баланс" hint="капитал журнала, а не свободные средства у брокера">
+        <Stat
+          label="Учётный баланс"
+          hint={
+            account.unknown_result_trades > 0
+              ? `приблизителен: у ${account.unknown_result_trades} сделок итог неизвестен и в сумму не вошёл`
+              : "капитал журнала, а не свободные средства у брокера"
+          }
+        >
           <Money value={account.book_balance} currency={account.currency} tone={false} />
         </Stat>
         <Stat label="Торговый результат" hint="без пополнений и выводов">

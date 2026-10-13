@@ -65,7 +65,6 @@ export function TradeForm({
   const [initialStop, setInitialStop] = useState("");
   const [target, setTarget] = useState("");
   const [fxRate, setFxRate] = useState("");
-  const [riskBudget, setRiskBudget] = useState("");
   const [openedAt, setOpenedAt] = useState(nowLocalInput);
   const [entryMode, setEntryMode] = useState<"planned" | "historical">("planned");
   const [notes, setNotes] = useState("");
@@ -82,7 +81,7 @@ export function TradeForm({
 
   const ready = Boolean(instrumentId && entryPrice && quantity);
   const formKey = JSON.stringify([
-    instrumentId, direction, entryPrice, quantity, initialStop, target, fxRate, riskBudget,
+    instrumentId, direction, entryPrice, quantity, initialStop, target, fxRate,
   ]);
   const latest = useRef(0);
 
@@ -102,7 +101,6 @@ export function TradeForm({
         initialStop,
         target,
         fxRate,
-        riskBudget,
       });
       // Ответ на устаревший запрос игнорируем: пользователь уже правил поля.
       if (id !== latest.current) return;
@@ -111,7 +109,7 @@ export function TradeForm({
       setError(result.ok ? null : result.error);
     }, 350);
     return () => clearTimeout(timer);
-  }, [accountId, instrumentId, direction, entryPrice, quantity, initialStop, target, fxRate, riskBudget, ready, formKey]);
+  }, [accountId, instrumentId, direction, entryPrice, quantity, initialStop, target, fxRate, ready, formKey]);
 
   const save = () => {
     setError(null);
@@ -125,7 +123,6 @@ export function TradeForm({
         initialStop,
         target,
         fxRate,
-        riskBudget,
         openedAt,
         entryMode,
         notes,
@@ -230,8 +227,6 @@ export function TradeForm({
               onChange={setFxRate}
             />
           )}
-
-          <Num label="Лимит риска на сделку" hint={`в ${accountCurrency}`} value={riskBudget} onChange={setRiskBudget} />
 
           <label className="block">
             <span className="text-xs font-medium text-muted">Время входа</span>
@@ -349,7 +344,11 @@ function PreviewPanel({
             <Row label="Риск до стопа" value={preview.riskAccount} suffix={accountCurrency} />
             <Row label="Доля от баланса" value={preview.riskPct} suffix="%" />
             <Row label="Плановое R/R" value={preview.plannedRr} />
-            <Row label="Допустимый объём" value={preview.maxVolume} hint={preview.maxVolumeReason} />
+            <Row
+              label="Допустимый объём"
+              value={preview.maxVolume}
+              hint={preview.maxVolumeReason ?? "по вашему правилу «риск на сделку»"}
+            />
           </dl>
 
           {preview.rules.length > 0 && (

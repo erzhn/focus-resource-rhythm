@@ -5,7 +5,6 @@ import {
   eq,
   floorToStep,
   gt,
-  gte,
   isPositive,
   lt,
   mul,
@@ -178,8 +177,3 @@ export function remainingQuantity(initial: Decimal, exited: Decimal[]): Decimal 
   return exited.reduce(sub, initial);
 }
 
-/** Закрыта ли позиция полностью. */
-export const isClosed = (remaining: Decimal) => !isPositive(remaining);
-
-/** Не закрыто ли больше, чем было открыто (защита от гонки двух выходов). */
-export const isOverClosed = (remaining: Decimal) => !gte(remaining, ZERO);

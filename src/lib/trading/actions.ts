@@ -5,10 +5,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { dec, isPositive, sub, toString, type Decimal } from "@/domain/trading/decimal";
+import { dec, div, isPositive, mul, sub, toString, type Decimal } from "@/domain/trading/decimal";
 import { localDate, isValidTimeZone } from "@/domain/trading/day";
 import { checkPlan } from "@/domain/trading/plan";
-import { finalR, initialRisk, plannedRR, realize } from "@/domain/trading/trade-math";
+import { checkStop, finalR, initialRisk, plannedRR, realize } from "@/domain/trading/trade-math";
 import type { FxSnapshot, Maybe, TradeEntry } from "@/domain/trading/types";
 import { checkPartialClose, checkVolume } from "@/domain/trading/volume";
 import {
@@ -361,6 +361,29 @@ async function runRules(
   return { checks, blocked: blocking.length > 0, evaluations, configs };
 }
 
+
+/**
+ * Денежный лимит риска из правила «риск на сделку».
+ *
+ * Правило задано в процентах от баланса, а проверка объёма работает с суммой,
+ * поэтому пересчёт нужен — но источник остаётся один.
+ */
+function riskBudgetFromRules(
+  configs: ReturnType<typeof toConfigs>,
+  balance: Decimal | null,
+): Decimal | null {
+  if (balance === null) return null;
+  const rule = configs.find((c) => c.code === "risk_per_trade" && c.enabled);
+  const raw = rule?.params.maxPct;
+  if (!raw || String(raw).trim() === "") return null;
+  try {
+    const pct = dec(String(raw).trim().replace(",", "."));
+    return div(mul(pct, balance), { value: 100n, scale: 0 }, 8);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Проверка плана (ничего не записывает)
 // ---------------------------------------------------------------------------
@@ -374,7 +397,6 @@ const planSchema = z.object({
   initialStop: z.string().optional(),
   target: z.string().optional(),
   fxRate: z.string().optional(),
-  riskBudget: z.string().optional(),
 });
 
 export interface RuleCheck {
@@ -422,17 +444,20 @@ export async function previewPlan(input: z.input<typeof planSchema>): Promise<Ac
       useBalance: true,
     });
 
-    const budget = parseDecimal(v.riskBudget, "Лимит риска");
-    const check = checkPlan(prepared.entry, { riskBudgetAccount: budget });
-    const rr = plannedRR(prepared.entry);
-
-    const { checks, blocked } = await runRules(supabase, {
+    const { checks, blocked, configs } = await runRules(supabase, {
       accountId: v.accountId,
       instrumentId: v.instrumentId,
       prepared,
       setupId: null,
       entryMoment: new Date(),
     });
+
+    // Лимит риска берётся из личных правил, а не из отдельного поля формы:
+    // два независимых источника одного ограничения рано или поздно разошлись бы,
+    // и было бы непонятно, какой из них настоящий.
+    const budget = riskBudgetFromRules(configs, prepared.entry.balanceAtEntry);
+    const check = checkPlan(prepared.entry, { riskBudgetAccount: budget });
+    const rr = plannedRR(prepared.entry);
 
     return done({
       approved: check.approved && !blocked,
@@ -494,6 +519,17 @@ export async function recordTrade(input: z.input<typeof recordSchema>): Promise<
     const volume = checkVolume(quantity, prepared.entry.spec);
     if (!volume.ok) return fail(volume.reason!);
 
+    // Правила проверяются ДО вставки: иначе новая сделка попала бы в счётчик
+    // входов за день и в сумму открытого риска, то есть проверялась бы сама
+    // против себя.
+    const { evaluations } = await runRules(supabase, {
+      accountId: v.accountId,
+      instrumentId: v.instrumentId,
+      prepared,
+      setupId: v.setupId || null,
+      entryMoment: openedAt,
+    });
+
     const risk = initialRisk(prepared.entry);
     const rr = plannedRR(prepared.entry);
     const spec = prepared.spec;
@@ -551,16 +587,8 @@ export async function recordTrade(input: z.input<typeof recordSchema>): Promise<
 
     if (error) return fail(`Не удалось записать сделку: ${error.message}`);
 
-    // Оценки правил сохраняются вместе со сделкой: именно они потом
-    // сравниваются с результатом, и восстановить их задним числом нельзя.
-    const { evaluations } = await runRules(supabase, {
-      accountId: v.accountId,
-      instrumentId: v.instrumentId,
-      prepared,
-      setupId: v.setupId || null,
-      entryMoment: openedAt,
-    });
-
+    // Оценки, посчитанные до вставки, сохраняются вместе со сделкой: именно
+    // они потом сравниваются с результатом, и восстановить их позже нельзя.
     if (evaluations.length > 0) {
       await supabase.from("trade_rule_evaluations").insert(
         evaluations.map((e) => ({
@@ -735,11 +763,20 @@ export async function moveStop(input: z.input<typeof stopSchema>): Promise<Actio
     const newStop = requirePositive(v.newStop, "Новый стоп");
     const { data: row } = await supabase
       .from("trading_trades_v")
-      .select("id, current_stop, status")
+      .select("id, current_stop, status, direction, entry_price")
       .eq("id", v.tradeId)
       .maybeSingle();
     if (!row) return fail("Сделка не найдена.");
     if (row.status !== "open") return fail("Сделка закрыта — стоп уже не действует.");
+
+    // Стоп по неправильную сторону входа — почти наверняка опечатка: он
+    // сработал бы немедленно. Лучше переспросить, чем записать бессмыслицу.
+    const side = checkStop({
+      direction: row.direction as "long" | "short",
+      entryPrice: dec(String(row.entry_price)),
+      initialStop: newStop,
+    });
+    if (!side.ok) return fail(side.reason!);
 
     const { error } = await supabase
       .from("trades")

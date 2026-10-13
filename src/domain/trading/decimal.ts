@@ -201,11 +201,3 @@ export function toTrimmedString(d: Decimal): string {
   const trimmed = s.replace(/0+$/, "").replace(/\.$/, "");
   return trimmed === "-0" ? "0" : trimmed;
 }
-
-/**
- * В число — ТОЛЬКО для отрисовки графиков, где точность до копейки не нужна.
- * В расчётах пользоваться нельзя: именно ради этого всё выше и написано.
- */
-export function toNumberForDisplay(d: Decimal): number {
-  return Number(toString(d));
-}

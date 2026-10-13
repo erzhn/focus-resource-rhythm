@@ -59,20 +59,25 @@ export async function loadAnalytics(accountId: string, currency: string): Promis
       .neq("status", "voided")
       .order("opened_at", { ascending: false })
       .limit(MAX_TRADES),
+    // Фильтр по счёту применяется В ЗАПРОСЕ, а не после него: иначе общий
+    // лимит строк мог бы отрезать проводки нужного счёта, и результат за
+    // период оказался бы занижен молча.
     sb
       .from("trade_exits_v")
       .select("*")
+      .eq("account_id", accountId)
       .order("exited_at", { ascending: false })
       .limit(MAX_EXITS),
     sb
-      .from("trade_cash_adjustments")
+      .from("trade_cash_adjustments_v")
       .select("id, trade_id, kind, amount_account, posted_at")
+      .eq("account_id", accountId)
       .order("posted_at", { ascending: false })
       .limit(MAX_EXITS),
     sb
-      .from("trade_rule_evaluations")
+      .from("trade_rule_evaluations_v")
       .select("trade_id, rule_code, rule_version, stage, status, weight, reconstructed, unknown_reason")
-      .not("trade_id", "is", null)
+      .eq("account_id", accountId)
       .limit(MAX_EXITS),
   ]);
 
@@ -146,7 +151,12 @@ export async function loadAnalytics(accountId: string, currency: string): Promis
     postings,
     evaluations,
     currency,
-    truncated: rows.length >= MAX_TRADES,
+    // Урезанной считается выборка, упёршаяся в любой из потолков: иначе
+    // интерфейс сообщал бы о полноте, которой нет.
+    truncated:
+      rows.length >= MAX_TRADES ||
+      exits.length >= MAX_EXITS ||
+      adjustments.length >= MAX_EXITS,
     postingsUnknown,
   };
 }
@@ -181,4 +191,3 @@ export function previousRange(days: number): { from: Date; to: Date } {
   return { from: new Date(to.getTime() - days * 86_400_000), to };
 }
 
-export const ZERO_MONEY = dec("0");
